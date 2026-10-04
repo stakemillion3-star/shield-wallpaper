@@ -101,7 +101,7 @@ def bosnia():
                 names=[t[0].lower() for t in e["teams"]]
                 return any(("bosnia" in n and "herzegovina" in n) for n in names)
             if all_events and all(is_bih(e) for e in all_events):
-                return last,nxt,"UEFA NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4"
+                return last,nxt,"NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4"
         except Exception: pass
     # Official UEFA 2026/27 B4 fixtures/results, used as a fail-closed fallback.
     # Times are 20:45 CET/CEST unless UEFA specifies otherwise; converted to Toronto.
@@ -118,7 +118,7 @@ def bosnia():
         ev.append({"date":dt,"state":"post" if done else "pre","completed":done,"detail":"",
                    "teams":[(a,sa,"home"),(b,sb,"away")],"name":f"{a} vs {b}"})
     now=datetime.now(TZ); past=[e for e in ev if e["completed"]]; future=[e for e in ev if not e["completed"] and e["date"]>=now]
-    return (past[-1] if past else None),future[:3],"UEFA NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4"
+    return (past[-1] if past else None),future[:3],"NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4"
 
 def background():
     p="assets/background.jpg"
@@ -200,7 +200,7 @@ def draw_standings(im,d,x,y,w,accent,competition_label):
         icon=team_icon(name,"soccer",(38,25))
         d.text((x,y+2),pos+".",font=font(17,True),fill="white")
         if icon: im.alpha_composite(icon,(x+48,y))
-        d.text((x+100,y+2),display_name(name),font=font(20,True),fill="white")
+        d.text((x+100,y+2),display_name(name),font=font(17,True),fill="white")
         d.text((x+w,y+2),f"{p:>2}     {w1:>2}     {dr:>2}     {l:>2}     {gd:>3}     {pts:>2}",anchor="ra",font=font(17,True),fill="white")
         y+=38
 
@@ -226,7 +226,7 @@ def section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_l
     d.text((x+55,y+278),"NEXT",font=font(34,True),fill=accent)
     first=nxt[0] if nxt else None
     draw_match(im,d,x+60,y+352,w-120,first,sport,False,"next")
-    if first:d.text((x+w//2,y+448),fmt_date(first["date"]),anchor="mm",font=font(19,True),fill=accent)
+    if first:d.text((x+w//2,y+448),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
 
     d.text((x+55,y+460),"UPCOMING",font=font(16,True),fill=(200,205,215,255))
     slots=[500,625]
@@ -238,7 +238,7 @@ def section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_l
 
     if sport=="soccer":
         d.line((x+55,y+755,x+w-55,y+755),fill=accent,width=2)
-        draw_standings(im,d,x+55,y+780,w-110,accent,competition_label or "—")
+        draw_standings(im,d,x+55,y+780,w-110,accent,competition_label or "GROUP TABLE")
     return im
 
 
@@ -246,8 +246,7 @@ def scaled_section(base,x,y,w,title,last,nxt,accent,sport,status_label=None,comp
     panel_h=1060 if sport=="soccer" else 780
     local=Image.new("RGBA",(w,panel_h),(0,0,0,0))
     local=section(local,0,0,w,title,last,nxt,accent,sport,status_label,competition_label)
-    nw,nh=int(w*scale),int(panel_h*scale)
-    local=local.resize((nw,nh),Image.Resampling.LANCZOS)
+    local=local.resize((int(w*scale),int(panel_h*scale)),Image.Resampling.LANCZOS)
     base.alpha_composite(local,(x,y))
     return base
 
