@@ -144,22 +144,32 @@ def display_name(name):
 
 def draw_match(im,d,x,y,w,e,sport,score=False,emphasis="normal"):
     if not e or len(e["teams"])<2:
-        d.text((x+w//2,y+22),"—",anchor="mm",font=font(28,True),fill="white"); return
+        d.text((x+w//2,y+28),"—",anchor="mm",font=font(28,True),fill="white"); return
     left,right=e["teams"][0],e["teams"][1]
+
+    # Use fixed visual logo slots, not raw downloaded-image dimensions.
+    # This keeps every left/right logo center perfectly aligned across rows.
     if emphasis=="next":
-        sz=(92,68) if sport=="nba" else (92,62)
-        mid_font,name_font=34,19
-        icon_y=0
+        box_w,box_h=118,82
+        mid_font,name_font=42,22
+        center_y=y+38
     else:
-        sz=(58,42) if sport=="nba" else (58,38)
-        mid_font,name_font=24,15
-        icon_y=6
-    li=team_icon(left[0],sport,sz); ri=team_icon(right[0],sport,sz)
-    if li: im.alpha_composite(li,(x, y+icon_y))
-    if ri: im.alpha_composite(ri,(x+w-ri.width, y+icon_y))
+        box_w,box_h=64,46
+        mid_font,name_font=23,15
+        center_y=y+25
+
+    li=team_icon(left[0],sport,(box_w,box_h))
+    ri=team_icon(right[0],sport,(box_w,box_h))
+    left_cx=x+box_w//2
+    right_cx=x+w-box_w//2
+    if li:
+        im.alpha_composite(li,(int(left_cx-li.width/2),int(center_y-li.height/2)))
+    if ri:
+        im.alpha_composite(ri,(int(right_cx-ri.width/2),int(center_y-ri.height/2)))
+
     mid=(f'{left[1]}  –  {right[1]}' if score and e["completed"] and left[1] is not None and right[1] is not None else "VS")
-    d.text((x+w//2,y+18),mid,anchor="mm",font=font(mid_font,True),fill="white")
-    d.text((x+w//2,y+50),f'{display_name(left[0])}  •  {display_name(right[0])}',anchor="mm",font=font(name_font,True),fill=(235,235,240,255))
+    d.text((x+w//2,center_y-8),mid,anchor="mm",font=font(mid_font,True),fill="white")
+    d.text((x+w//2,center_y+27),f'{display_name(left[0])}  •  {display_name(right[0])}',anchor="mm",font=font(name_font,True),fill=(235,235,240,255))
 
 def standings_data(sport):
     if sport=="soccer":
@@ -203,10 +213,10 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
     if last:d.text((x+w//2,y+252),fmt_date(last["date"]),anchor="mm",font=font(17),fill=(195,200,210,255))
 
     # NEXT is intentionally much larger/brighter.
-    d.text((x+55,y+292),"NEXT",font=font(30,True),fill=accent)
+    d.text((x+55,y+286),"NEXT",font=font(36,True),fill=accent)
     first=nxt[0] if nxt else None
-    draw_match(im,d,x+35,y+330,w-70,first,sport,False,"next")
-    if first:d.text((x+w//2,y+414),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
+    draw_match(im,d,x+30,y+326,w-60,first,sport,False,"next")
+    if first:d.text((x+w//2,y+424),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
 
     d.text((x+55,y+460),"UPCOMING",font=font(16,True),fill=(200,205,215,255))
     slots=[500,625]
