@@ -205,7 +205,7 @@ def simple_standings(im,d,x,y,w,accent,competition_label):
 
 def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
     # Minimal 10-foot dashboard: header, last result, next event, standings only.
-    h=1160 if sport=="soccer" else 900
+    h=1015 if sport=="soccer" else 775
     im=panel(im,(x,y,x+w,y+h),190)
     d=ImageDraw.Draw(im)
     header_icon=team_icon("Toronto Raptors","nba",(112,112)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(132,88))
@@ -225,8 +225,8 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
     simple_match(im,d,x+65,y+500,w-130,first,sport,False,True,accent)
 
     if sport=="soccer":
-        d.line((x+58,y+675,x+w-58,y+675),fill=accent,width=3)
-        simple_standings(im,d,x+58,y+705,w-116,accent,competition_label or "GROUP TABLE")
+        d.line((x+58,y+720,x+w-58,y+720),fill=accent,width=3)
+        simple_standings(im,d,x+58,y+750,w-116,accent,competition_label or "GROUP TABLE")
     return im
 
 
