@@ -185,9 +185,9 @@ def draw_result(im,d,x,y,w,e,sport,accent):
     place_icon(im,right[0],sport,right_cx,y+80,(240,175))
     score=(f"{left[1]}  –  {right[1]}"
            if left[1] is not None and right[1] is not None else "—")
-    centered_text(d,score,cx,y+80,font(96,True),(255,255,255,255))
-    centered_text(d,display_name(left[0]),left_cx,y+200,font(50,True),(248,248,250,255))
-    centered_text(d,display_name(right[0]),right_cx,y+200,font(50,True),(248,248,250,255))
+    centered_text(d,score,cx,y+80,font(86,True),(255,255,255,255))
+    centered_text(d,display_name(left[0]),left_cx,y+200,font(44,True),(248,248,250,255))
+    centered_text(d,display_name(right[0]),right_cx,y+200,font(44,True),(248,248,250,255))
 
 
 def draw_upcoming(im,d,x,y,w,e,sport,accent):
@@ -203,12 +203,17 @@ def draw_upcoming(im,d,x,y,w,e,sport,accent):
             # Both soccer flags and NBA logos render 320px high; preserve each flag's proportions.
             return (640,320) if "Bosnia" in name else (512,320)
         return (320,320)
-    place_icon(im,left[0],sport,left_cx,y+85,upcoming_icon_size(left[0]))
-    place_icon(im,right[0],sport,right_cx,y+85,upcoming_icon_size(right[0]))
-    centered_text(d,"VS",cx,y+85,font(116,True),(255,255,255,255))
+    left_icon=place_icon(im,left[0],sport,left_cx,y+85,upcoming_icon_size(left[0]))
+    right_icon=place_icon(im,right[0],sport,right_cx,y+85,upcoming_icon_size(right[0]))
+    vs_cx=cx
+    if left_icon and right_icon:
+        left_edge=left_cx+left_icon.width/2
+        right_edge=right_cx-right_icon.width/2
+        vs_cx=(left_edge+right_edge)/2
+    centered_text(d,"VS",vs_cx,y+85,font(116,True),(255,255,255,255))
     centered_text(d,display_name(left[0]),left_cx,y+285,font(58,True),(248,248,250,255))
     centered_text(d,display_name(right[0]),right_cx,y+285,font(58,True),(248,248,250,255))
-    centered_text(d,fmt_date(e["date"]),cx,y+370,font(70,True),accent)
+    centered_text(d,fmt_date(e["date"]),cx,y+370,font(64,True),accent)
 
 
 def simple_standings(im,x,y,w,h,accent,competition_label):
@@ -252,7 +257,7 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
     draw_upcoming(im,d,x+64,y+195,w-128,nxt[0] if nxt else None,sport,accent)
     d.line((x+58,y+630,x+w-58,y+630),fill=accent,width=3)
 
-    centered_text(d,"LAST RESULT",x+w/2,y+690,font(64,True),(224,229,238,255))
+    centered_text(d,"LAST RESULT",x+w/2,y+690,font(56,True),(224,229,238,255))
     draw_result(im,d,x+64,y+710,w-128,last,sport,accent)
     return im
 
