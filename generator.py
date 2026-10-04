@@ -266,7 +266,7 @@ def dock_backdrop(im):
     # Gradually blur the empty wallpaper area below the standings, with no dock shape or tint.
     top=1730
     region=im.crop((0,top,W,H)).convert("RGBA")
-    blurred=region.filter(ImageFilter.GaussianBlur(22))
+    blurred=region.filter(ImageFilter.GaussianBlur(28))
     fade=Image.new("L",(1,H-top))
     for yy in range(H-top):
         t=yy/max(1,H-top-1)
