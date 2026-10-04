@@ -180,17 +180,25 @@ def standings_data(sport):
 def simple_standings(im,d,x,y,w,accent,competition_label):
     rows=standings_data("soccer")
     d.text((x,y),competition_label,font=font(39,True),fill=accent)
-    d.text((x+w,y),"P    W    D    L    GD   PTS",anchor="ra",font=font(32,True),fill=(235,238,244,255))
-    y+=52
+
+    # Fixed numeric columns so headings and every row line up perfectly.
+    cols=[("W",w-330),("D",w-250),("L",w-170),("GD",w-85),("PTS",w)]
+    for label,cx in cols:
+        d.text((x+cx,y+2),label,anchor="ra",font=font(32,True),fill=(235,238,244,255))
+
+    y+=58
     for pos,name,p,w1,dr,l,gd,pts in rows:
         if "Bosnia" in name:
-            d.rounded_rectangle((x-8,y-5,x+w+5,y+42),radius=8,fill=(35,105,170,110))
+            d.rounded_rectangle((x-8,y-6,x+w+5,y+47),radius=8,fill=(35,105,170,110))
         icon=team_icon(name,"soccer",(64,43))
-        d.text((x,y+3),pos+".",font=font(32,True),fill="white")
-        if icon: im.alpha_composite(icon,(x+50,y))
-        d.text((x+132,y+3),display_name(name),font=font(31,True),fill="white")
-        d.text((x+w,y+3),f"{p}    {w1}    {dr}    {l}    {gd:>3}    {pts}",anchor="ra",font=font(23,True),fill="white")
+        d.text((x,y+4),pos+".",font=font(32,True),fill="white")
+        if icon: im.alpha_composite(icon,(x+52,y))
+        d.text((x+132,y+4),display_name(name),font=font(31,True),fill="white")
+        vals=[w1,dr,l,gd,pts]
+        for (_,cx),val in zip(cols,vals):
+            d.text((x+cx,y+4),str(val),anchor="ra",font=font(31,True),fill="white")
         y+=58
+
 
 def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
     # Minimal 10-foot dashboard: header, last result, next event, standings only.
@@ -203,7 +211,7 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
         im.alpha_composite(header_icon,(hx,y+28)); hx+=header_icon.width+25
     d.text((hx,y+45),title,font=font(70,True),fill=accent)
     if status_label:
-        d.text((x+w-58,y+104),status_label,anchor="ra",font=font(23,True),fill=accent)
+        d.text((x+w-58,y+104),status_label,anchor="ra",font=font(34,True),fill=accent)
     d.line((x+58,y+145,x+w-58,y+145),fill=accent,width=4)
 
     d.text((x+58,y+174),"LAST RESULT",font=font(36,True),fill=(220,225,235,255))
@@ -211,7 +219,7 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
 
     d.text((x+58,y+400),"NEXT MATCH" if sport=="soccer" else "NEXT GAME",font=font(58,True),fill=accent)
     first=nxt[0] if nxt else None
-    simple_match(im,d,x+65,y+450,w-130,first,sport,False,True,accent)
+    simple_match(im,d,x+65,y+485,w-130,first,sport,False,True,accent)
 
     if sport=="soccer":
         d.line((x+58,y+675,x+w-58,y+675),fill=accent,width=3)
@@ -233,8 +241,8 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=simple_section(im,45,660,1740,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
-    im=simple_section(im,2055,660,1740,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
+    im=simple_section(im,45,790,1740,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
+    im=simple_section(im,2055,790,1740,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
