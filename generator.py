@@ -155,7 +155,7 @@ def draw_match(im,d,x,y,w,e,sport,score=False,big=False):
     d.text((x+w//2,y+52),f'{left[0]}  •  {right[0]}',anchor="ma",font=font(22 if big else 19,True),fill=(235,235,240,255))
 
 def section(im,x,y,w,title,last,nxt,accent,sport):
-    im=panel(im,(x,y,x+w,y+790),175)
+    im=panel(im,(x,y,x+w,y+900),175)
     d=ImageDraw.Draw(im)
     # Header icon
     hi=team_icon("Toronto Raptors","nba",(95,95)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(105,72))
@@ -199,8 +199,8 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=section(im,170,610,1250,"BOSNIA & HERZEGOVINA",bl,bn,(80,170,255,255),"soccer")
-    im=section(im,2420,610,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba")
+    im=section(im,170,660,1250,"BOSNIA & HERZEGOVINA",bl,bn,(80,170,255,255),"soccer")
+    im=section(im,2420,660,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba")
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
