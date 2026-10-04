@@ -6,7 +6,7 @@ Automatic 4K (3840×2160) Projectivy Launcher wallpaper for an NVIDIA Shield.
 - Bosnia & Herzegovina: last result + next three UEFA Nations League fixtures
 - Toronto Raptors: last result + next three games
 - Times are rendered in America/Toronto (Eastern Time)
-- Refreshes every 3 hours with GitHub Actions
+- Refreshes daily with GitHub Actions and rebuilds immediately after generator, dependency, or artwork changes
 - If a feed fails, the renderer shows a neutral unavailable state rather than inventing a score or fixture.
 
 ## Data
