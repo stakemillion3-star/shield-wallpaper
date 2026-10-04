@@ -246,7 +246,7 @@ def simple_standings(im,x,y,w,h,accent,competition_label):
 
 
 def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
-    h=860
+    h=840
     im=panel(im,(x,y,x+w,y+h),194)
     d=ImageDraw.Draw(im)
     if status_label:
@@ -276,8 +276,8 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=simple_section(im,60,430,1800,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
-    im=simple_section(im,1980,430,1800,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
+    im=simple_section(im,60,450,1800,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
+    im=simple_section(im,1980,450,1800,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
     im=simple_standings(im,68,1310,1820,450,(80,170,255,255),bcomp or "GROUP TABLE")
     if errors:
         d=ImageDraw.Draw(im)
