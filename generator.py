@@ -1,4 +1,4 @@
-import io, json, os, requests
+import hashlib, io, json, os, requests
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -176,18 +176,18 @@ def place_icon(im,name,sport,cx,cy,size):
 def draw_result(im,d,x,y,w,e,sport,accent):
     cx=x+w/2
     if not e or len(e["teams"])<2:
-        centered_text(d,"NO RESULT AVAILABLE",cx,y+80,font(44,True),(225,230,238,255))
+        centered_text(d,"NO RESULT AVAILABLE",cx,y+80,font(40,True),(225,230,238,255))
         return
     left,right=e["teams"][0],e["teams"][1]
     left_cx=x+w*0.245
     right_cx=x+w*0.755
-    place_icon(im,left[0],sport,left_cx,y+80,(240,175))
-    place_icon(im,right[0],sport,right_cx,y+80,(240,175))
+    place_icon(im,left[0],sport,left_cx,y+80,(210,150))
+    place_icon(im,right[0],sport,right_cx,y+80,(210,150))
     score=(f"{left[1]}  –  {right[1]}"
            if left[1] is not None and right[1] is not None else "—")
-    centered_text(d,score,cx,y+80,font(86,True),(255,255,255,255))
-    centered_text(d,display_name(left[0]),left_cx,y+200,font(44,True),(248,248,250,255))
-    centered_text(d,display_name(right[0]),right_cx,y+200,font(44,True),(248,248,250,255))
+    centered_text(d,score,cx,y+80,font(78,True),(255,255,255,255))
+    centered_text(d,display_name(left[0]),left_cx,y+188,font(40,True),(248,248,250,255))
+    centered_text(d,display_name(right[0]),right_cx,y+188,font(40,True),(248,248,250,255))
 
 
 def draw_upcoming(im,d,x,y,w,e,sport,accent):
@@ -200,64 +200,64 @@ def draw_upcoming(im,d,x,y,w,e,sport,accent):
     right_cx=x+w*0.755
     def upcoming_icon_size(name):
         if sport=="soccer":
-            # Both soccer flags and NBA logos render 320px high; preserve each flag's proportions.
-            return (640,320) if "Bosnia" in name else (512,320)
-        return (320,320)
-    left_icon=place_icon(im,left[0],sport,left_cx,y+85,upcoming_icon_size(left[0]))
-    right_icon=place_icon(im,right[0],sport,right_cx,y+85,upcoming_icon_size(right[0]))
+            # Matchup flags and logos are slightly smaller to open up the panel.
+            return (560,280) if "Bosnia" in name else (448,280)
+        return (280,280)
+    left_icon=place_icon(im,left[0],sport,left_cx,y+75,upcoming_icon_size(left[0]))
+    right_icon=place_icon(im,right[0],sport,right_cx,y+75,upcoming_icon_size(right[0]))
     vs_cx=cx
     if left_icon and right_icon:
         left_edge=left_cx+left_icon.width/2
         right_edge=right_cx-right_icon.width/2
         vs_cx=(left_edge+right_edge)/2
-    centered_text(d,"VS",vs_cx,y+85,font(116,True),(255,255,255,255))
-    centered_text(d,display_name(left[0]),left_cx,y+285,font(58,True),(248,248,250,255))
-    centered_text(d,display_name(right[0]),right_cx,y+285,font(58,True),(248,248,250,255))
-    centered_text(d,fmt_date(e["date"]),cx,y+370,font(64,True),accent)
+    centered_text(d,"VS",vs_cx,y+75,font(104,True),(255,255,255,255))
+    centered_text(d,display_name(left[0]),left_cx,y+275,font(52,True),(248,248,250,255))
+    centered_text(d,display_name(right[0]),right_cx,y+275,font(52,True),(248,248,250,255))
+    centered_text(d,fmt_date(e["date"]),cx,y+355,font(58,True),accent)
 
 
 def simple_standings(im,x,y,w,h,accent,competition_label):
     im=panel(im,(x,y,x+w,y+h),194)
     d=ImageDraw.Draw(im)
     rows=standings_data("soccer")
-    centered_text(d,competition_label,x+w/2,y+42,font(46,True),accent)
+    centered_text(d,competition_label,x+w/2,y+38,font(42,True),accent)
 
     col_x=[x+w-500,x+w-400,x+w-300,x+w-200,x+w-100]
     labels=["W","D","L","GD","PTS"]
     for label,cx in zip(labels,col_x):
-        centered_text(d,label,cx,y+105,font(40,True),(235,238,244,255))
+        centered_text(d,label,cx,y+90,font(36,True),(235,238,244,255))
 
-    row_start=y+145
-    row_h=82
+    row_start=y+120
+    row_h=72
     for index,(pos,name,played,won,drawn,lost,gd,pts) in enumerate(rows):
         row_y=row_start+index*row_h
         if "Bosnia" in name:
-            d.rounded_rectangle((x+14,row_y-1,x+w-14,row_y+78),radius=12,fill=(35,105,170,165))
-        centered_text(d,pos+".",x+40,row_y+40,font(44,True),(255,255,255,255))
-        icon=team_icon(name,"soccer",(104,68))
+            d.rounded_rectangle((x+14,row_y-1,x+w-14,row_y+68),radius=12,fill=(35,105,170,165))
+        centered_text(d,pos+".",x+40,row_y+36,font(40,True),(255,255,255,255))
+        icon=team_icon(name,"soccer",(90,58))
         if icon:
-            im.alpha_composite(icon,(x+82,row_y+40-icon.height//2))
-        d.text((x+205,row_y+40),display_name(name),anchor="lm",
-               font=font(46,True),fill=(255,255,255,255))
+            im.alpha_composite(icon,(x+82,row_y+36-icon.height//2))
+        d.text((x+205,row_y+36),display_name(name),anchor="lm",
+               font=font(42,True),fill=(255,255,255,255))
         vals=[won,drawn,lost,gd,pts]
         for cx,val in zip(col_x,vals):
-            centered_text(d,str(val),cx,row_y+40,font(44,True),(255,255,255,255))
+            centered_text(d,str(val),cx,row_y+36,font(40,True),(255,255,255,255))
     return im
 
 
 def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
-    h=1000
+    h=960
     im=panel(im,(x,y,x+w,y+h),194)
     d=ImageDraw.Draw(im)
     if status_label:
         d.text((x+w-58,y+70),status_label,anchor="rm",font=font(36,True),fill=accent)
 
     centered_text(d,"NEXT MATCH" if sport=="soccer" else "NEXT GAME",
-                  x+w/2,y+70,font(76,True),accent)
+                  x+w/2,y+70,font(72,True),accent)
     draw_upcoming(im,d,x+64,y+195,w-128,nxt[0] if nxt else None,sport,accent)
     d.line((x+58,y+630,x+w-58,y+630),fill=accent,width=3)
 
-    centered_text(d,"LAST RESULT",x+w/2,y+690,font(56,True),(224,229,238,255))
+    centered_text(d,"LAST RESULT",x+w/2,y+690,font(50,True),(224,229,238,255))
     draw_result(im,d,x+64,y+710,w-128,last,sport,accent)
     return im
 
@@ -276,9 +276,9 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=simple_section(im,48,360,1860,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
-    im=simple_section(im,1932,360,1860,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
-    im=simple_standings(im,68,1380,1820,510,(80,170,255,255),bcomp or "GROUP TABLE")
+    im=simple_section(im,48,400,1860,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
+    im=simple_section(im,1932,400,1860,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
+    im=simple_standings(im,68,1380,1820,450,(80,170,255,255),bcomp or "GROUP TABLE")
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
@@ -287,10 +287,11 @@ def main():
     # Overflight wallpaper provider feed. Daily query values tell Projectivy
     # a new image URI after each scheduled render, avoiding stale image caches.
     version=datetime.now(TZ).strftime("%Y%m%d")
+    digest=hashlib.sha256(open("wallpaper.jpg","rb").read()).hexdigest()[:12]
     feed=[{
         "location":"Shield Sports",
         "title":"Bosnia & Raptors Daily Wallpaper",
-        "url_img":f"https://stakemillion3-star.github.io/shield-wallpaper/wallpaper.jpg?v={version}"
+        "url_img":f"https://stakemillion3-star.github.io/shield-wallpaper/wallpaper.jpg?v={version}-{digest}"
     }]
     with open("p.json","w",encoding="utf-8") as f:
         json.dump(feed,f,ensure_ascii=False,indent=2)
