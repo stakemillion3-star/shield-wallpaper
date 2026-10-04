@@ -268,11 +268,11 @@ def dock_backdrop(im):
     top=1765
     bottom=2135
     region=im.crop((0,top,W,bottom)).convert("RGBA")
-    blurred=region.filter(ImageFilter.GaussianBlur(12))
+    blurred=region.filter(ImageFilter.GaussianBlur(6))
 
     mask=Image.new("L",(1,bottom-top))
-    fade=20
-    max_blur=0.45
+    fade=36
+    max_blur=0.22
     for yy in range(bottom-top):
         edge=min(1.0,(yy+1)/fade,(bottom-top-yy)/fade)
         strength=max(0.0,min(1.0,edge))*max_blur
