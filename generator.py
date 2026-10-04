@@ -295,9 +295,9 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=simple_section(im,10,450,1900,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
-    im=simple_section(im,1930,450,1900,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
-    im=simple_standings(im,40,1310,1840,430,(80,170,255,255),bcomp or "GROUP TABLE")
+    im=simple_section(im,20,450,1890,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
+    im=simple_section(im,1930,450,1890,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
+    im=simple_standings(im,45,1310,1840,430,(80,170,255,255),bcomp or "GROUP TABLE")
     im=dock_backdrop(im)
     if errors:
         d=ImageDraw.Draw(im)
