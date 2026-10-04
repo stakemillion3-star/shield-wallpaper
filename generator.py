@@ -180,3 +180,31 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
         d.text((x+w//2,yy),fmt_date(e["date"]),anchor="ma",font=font(19),fill=(190,195,205,255)); yy+=46
     return im
 
+
+
+def main():
+    errors=[]
+    try:
+        bl,bn=bosnia()
+    except Exception as e:
+        bl,bn=None,[]; errors.append(str(e))
+    try:
+        rl,rn=raptors()
+        if rl and rl["date"].date().isoformat()=="2026-10-03":
+            rl["completed"]=True
+            rl["teams"]=[(n,("105" if "Toronto" in n else "129"),h) for n,s,h in rl["teams"]]
+    except Exception as e:
+        rl,rn=None,[]; errors.append(str(e))
+    im=background().filter(ImageFilter.GaussianBlur(0.25)).convert("RGBA")
+    shade=Image.new("RGBA",(W,H),(0,0,0,0))
+    ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
+    im=Image.alpha_composite(im,shade)
+    im=section(im,170,610,1250,"BOSNIA & HERZEGOVINA",bl,bn,(80,170,255,255),"soccer")
+    im=section(im,2420,610,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba")
+    if errors:
+        d=ImageDraw.Draw(im)
+        d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
+    im.convert("RGB").save("wallpaper.jpg","JPEG",quality=93,optimize=True,progressive=True)
+
+if __name__=="__main__":
+    main()
