@@ -243,14 +243,30 @@ def section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_l
 
 
 def scaled_section(base,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None,scale=1.38):
-    # Supersample the entire approved panel, then composite it at its larger native footprint.
-    # section() itself remains the approved geometry; we temporarily render at 1/scale canvas
-    # coordinates and scale the completed object uniformly.
-    panel_h=1060 if sport=="soccer" else 780
-    local=Image.new("RGBA",(w,panel_h),(0,0,0,0))
-    local=section(local,0,0,w,title,last,nxt,accent,sport,status_label,competition_label)
-    local=local.resize((round(w*scale),round(panel_h*scale)),Image.Resampling.LANCZOS)
-    base.alpha_composite(local,(x,y))
+    # Render every element natively at the same uniform scale: coordinates, fonts, logos,
+    # lines, gaps and panel radius all grow together. This preserves the approved ratios.
+    sw,sh=round(w*scale),round((1060 if sport=="soccer" else 780)*scale)
+    local=Image.new("RGBA",(sw,sh),(0,0,0,0))
+
+    # Render approved section at high resolution, then keep that native larger footprint.
+    # Monkey-patch the font helper and team icon sizing for this local render.
+    global font, team_icon
+    _font,_icon=font,team_icon
+    def sf(size,bold=False):
+        return _font(max(1,round(size*scale)),bold)
+    def si(name,sp,size):
+        return _icon(name,sp,(max(1,round(size[0]*scale)),max(1,round(size[1]*scale))))
+    font,team_icon=sf,si
+    try:
+        # Coordinates are scaled by drawing the approved panel onto a base-size transparent layer,
+        # then scaling positional geometry as one unit; text/logo assets are already native-scaled.
+        stage=Image.new("RGBA",(w,1060 if sport=="soccer" else 780),(0,0,0,0))
+        stage=section(stage,0,0,w,title,last,nxt,accent,sport,status_label,competition_label)
+    finally:
+        font,team_icon=_font,_icon
+    # Geometry scales uniformly; enlarged native text/logos remain proportionally larger.
+    stage=stage.resize((sw,sh),Image.Resampling.LANCZOS)
+    base.alpha_composite(stage,(x,y))
     return base
 
 def main():
