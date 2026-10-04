@@ -271,7 +271,7 @@ def dock_backdrop(im):
 
     mask=Image.new("L",(1,bottom-top))
     fade=36
-    max_shade=0.12
+    max_shade=0.20
     for yy in range(bottom-top):
         edge=min(1.0,(yy+1)/fade,(bottom-top-yy)/fade)
         strength=max(0.0,min(1.0,edge))*max_shade
