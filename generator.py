@@ -262,6 +262,22 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
     return im
 
 
+def dock_backdrop(im):
+    # Soft, dark fade under the launcher icons without covering the standings.
+    top=1730
+    region=im.crop((0,top,W,H)).convert("RGBA")
+    blurred=region.filter(ImageFilter.GaussianBlur(14))
+    softened=Image.blend(region,blurred,0.24)
+    fade=Image.new("L",(1,H-top))
+    for yy in range(H-top):
+        t=yy/max(1,H-top-1)
+        fade.putpixel((0,yy),int(72*(t**1.6)))
+    shade=Image.new("RGBA",region.size,(0,0,0,0))
+    shade.putalpha(fade.resize(region.size,Image.Resampling.BILINEAR))
+    im.paste(Image.alpha_composite(softened,shade),(0,top))
+    return im
+
+
 def main():
     errors=[]
     try:
@@ -276,9 +292,9 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=simple_section(im,40,450,1840,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
-    im=simple_section(im,1960,450,1840,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
-    im=simple_standings(im,40,1300,1840,430,(80,170,255,255),bcomp or "GROUP TABLE")
+    im=simple_section(im,20,450,1880,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
+    im=simple_section(im,1940,450,1880,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
+    im=simple_standings(im,40,1300,1840,430,\n    im=dock_backdrop(im)(80,170,255,255),bcomp or "GROUP TABLE")
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
