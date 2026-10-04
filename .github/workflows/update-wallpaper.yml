@@ -25,6 +25,6 @@ jobs:
         run: |
           git config user.name "shield-wallpaper-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add wallpaper.jpg projectivy-wallpaper.json
+          git add wallpaper.jpg p.json
           git diff --cached --quiet || git commit -m "Update sports wallpaper"
           git push
