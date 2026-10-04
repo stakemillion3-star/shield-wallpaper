@@ -151,8 +151,39 @@ def draw_match(im,d,x,y,w,e,sport,score=False,big=False):
     d.text((x+w//2,y+15),mid,anchor="mm",font=font(34 if big else 25,True),fill="white")
     d.text((x+w//2,y+48),f'{left[0]}  •  {right[0]}',anchor="mm",font=font(19 if big else 17,True),fill=(235,235,240,255))
 
+def standings_data(sport):
+    if sport=="soccer":
+        # UEFA Group B4 after Matchday 3, Oct 2, 2026.
+        return [("1","Sweden","3","2","1","0","+3","7"),
+                ("2","Bosnia and Herzegovina","3","1","2","0","+2","5"),
+                ("3","Poland","3","1","1","1","+4","4"),
+                ("4","Romania","3","0","0","3","-9","0")]
+    # Preseason: standings position is intentionally omitted; show current preseason record only.
+    return [("","Toronto Raptors","1","0","0","1","-24","0-1")]
+
+def draw_standings(im,d,x,y,w,sport,accent):
+    rows=standings_data(sport)
+    title="GROUP B4 STANDINGS" if sport=="soccer" else "PRESEASON RECORD"
+    d.text((x,y),title,font=font(21,True),fill=(210,215,225,255))
+    y+=38
+    if sport=="soccer":
+        d.text((x,y),"#   TEAM                         P   W   D   L    GD   PTS",font=font(16,True),fill=(175,185,200,255)); y+=30
+        for pos,name,p,w1,dr,l,gd,pts in rows:
+            if "Bosnia" in name:
+                d.rounded_rectangle((x-8,y-4,x+w,y+28),radius=8,fill=(35,110,180,95))
+            icon=team_icon(name,"soccer",(34,23))
+            if icon: im.alpha_composite(icon,(x+28,y))
+            d.text((x,y),pos,font=font(16,True),fill="white")
+            d.text((x+72,y),name,font=font(16,True),fill="white")
+            d.text((x+w-300,y),f"{p:>2}   {w1:>2}   {dr:>2}   {l:>2}   {gd:>3}   {pts:>2}",font=font(16,True),fill="white")
+            y+=34
+    else:
+        # NBA does not use preseason conference standings here; record is clearer and non-misleading.
+        d.text((x,y),"Toronto Raptors",font=font(19,True),fill="white")
+        d.text((x+w,y),"0–1   •   Point Diff −24",anchor="ra",font=font(19,True),fill=accent)
+
 def section(im,x,y,w,title,last,nxt,accent,sport):
-    im=panel(im,(x,y,x+w,y+930),175)
+    im=panel(im,(x,y,x+w,y+1130),175)
     d=ImageDraw.Draw(im)
     hi=team_icon("Toronto Raptors","nba",(88,88)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(100,68))
     hx=x+55
@@ -162,17 +193,17 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
     d.line((x+45,y+125,x+w-45,y+125),fill=accent,width=3)
 
     # Fixed vertical slots; no cumulative yy math, so rows cannot collide.
-    d.text((x+55,y+150),"LAST RESULT",font=font(23,True),fill=(210,215,225,255))
-    draw_match(im,d,x+60,y+190,w-120,last,sport,True,True)
-    if last:d.text((x+w//2,y+265),fmt_date(last["date"]),anchor="mm",font=font(20),fill=(190,195,205,255))
+    d.text((x+55,y+158),"LAST RESULT",font=font(23,True),fill=(210,215,225,255))
+    draw_match(im,d,x+60,y+198,w-120,last,sport,True,True)
+    if last:d.text((x+w//2,y+273),fmt_date(last["date"]),anchor="mm",font=font(20),fill=(190,195,205,255))
 
-    d.text((x+55,y+325),"NEXT",font=font(23,True),fill=(210,215,225,255))
+    d.text((x+55,y+333),"NEXT",font=font(23,True),fill=(210,215,225,255))
     first=nxt[0] if nxt else None
-    draw_match(im,d,x+60,y+365,w-120,first,sport,False,True)
-    if first:d.text((x+w//2,y+440),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
+    draw_match(im,d,x+60,y+373,w-120,first,sport,False,True)
+    if first:d.text((x+w//2,y+448),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
 
-    d.text((x+55,y+505),"UPCOMING",font=font(23,True),fill=(210,215,225,255))
-    slots=[545,700]
+    d.text((x+55,y+513),"UPCOMING",font=font(23,True),fill=(210,215,225,255))
+    slots=[553,708]
     for idx,event in enumerate(nxt[1:3]):
         sy=y+slots[idx]
         draw_match(im,d,x+60,sy,w-120,event,sport,False,False)
