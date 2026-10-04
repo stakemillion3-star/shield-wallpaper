@@ -185,7 +185,6 @@ def draw_standings(im,d,x,y,w,accent):
         y+=38
 
 def section(im,x,y,w,title,last,nxt,accent,sport):
-    # Reference-inspired compact/tall panel.
     panel_h=1060 if sport=="soccer" else 780
     im=panel(im,(x,y,x+w,y+panel_h),175)
     d=ImageDraw.Draw(im)
@@ -198,21 +197,23 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
         d.text((x+w-55,y+88),"PRESEASON",anchor="ra",font=font(18,True),fill=accent)
     d.line((x+55,y+118,x+w-55,y+118),fill=accent,width=3)
 
-    d.text((x+55,y+142),"LAST RESULT",font=font(21,True),fill=(215,220,230,255))
-    draw_match(im,d,x+60,y+178,w-120,last,sport,True,True)
-    if last:d.text((x+w//2,y+252),fmt_date(last["date"]),anchor="mm",font=font(18),fill=(195,200,210,255))
+    # IDENTICAL section coordinates on both panels.
+    d.text((x+55,y+142),"LAST RESULT",font=font(16,True),fill=(200,205,215,255))
+    draw_match(im,d,x+60,y+178,w-120,last,sport,True,"normal")
+    if last:d.text((x+w//2,y+252),fmt_date(last["date"]),anchor="mm",font=font(17),fill=(195,200,210,255))
 
-    d.text((x+55,y+300),"NEXT",font=font(21,True),fill=(215,220,230,255))
+    # NEXT is intentionally much larger/brighter.
+    d.text((x+55,y+292),"NEXT",font=font(30,True),fill=accent)
     first=nxt[0] if nxt else None
-    draw_match(im,d,x+45,y+334,w-90,first,sport,False,"next")
-    if first:d.text((x+w//2,y+410),fmt_date(first["date"]),anchor="mm",font=font(20,True),fill=accent)
+    draw_match(im,d,x+35,y+330,w-70,first,sport,False,"next")
+    if first:d.text((x+w//2,y+414),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
 
-    d.text((x+55,y+460),"UPCOMING",font=font(21,True),fill=(215,220,230,255))
+    d.text((x+55,y+460),"UPCOMING",font=font(16,True),fill=(200,205,215,255))
     slots=[500,625]
     for idx,event in enumerate(nxt[1:3]):
         sy=y+slots[idx]
         draw_match(im,d,x+60,sy,w-120,event,sport,False,"normal")
-        d.text((x+w//2,sy+68),fmt_date(event["date"]),anchor="mm",font=font(17),fill=(195,200,210,255))
+        d.text((x+w//2,sy+68),fmt_date(event["date"]),anchor="mm",font=font(16),fill=(195,200,210,255))
         if idx==0:d.line((x+70,sy+98,x+w-70,sy+98),fill=(255,255,255,40),width=2)
 
     if sport=="soccer":
