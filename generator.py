@@ -208,7 +208,7 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
         sy=y+slots[idx]
         draw_match(im,d,x+60,sy,w-120,event,sport,False,False)
         d.text((x+w//2,sy+68),fmt_date(event["date"]),anchor="mm",font=font(17),fill=(195,200,210,255))
-            if idx==0:d.line((x+70,sy+98,x+w-70,sy+98),fill=(255,255,255,40),width=2)
+        if idx==0:d.line((x+70,sy+98,x+w-70,sy+98),fill=(255,255,255,40),width=2)
 
     if sport=="soccer":
         d.line((x+55,y+755,x+w-55,y+755),fill=accent,width=2)
