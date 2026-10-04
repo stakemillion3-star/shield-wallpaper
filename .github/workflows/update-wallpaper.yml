@@ -1,8 +1,14 @@
 name: Update sports wallpaper
 on:
+  push:
+    paths:
+      - ".github/workflows/update-wallpaper.yml"
+      - "generator.py"
+      - "requirements.txt"
+      - "assets/**"
   workflow_dispatch:
   schedule:
-    - cron: "17 */3 * * *"
+    - cron: "17 12 * * *"
 permissions:
   contents: write
 jobs:
