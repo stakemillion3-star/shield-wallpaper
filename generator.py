@@ -292,7 +292,7 @@ def main():
         "title":"Bosnia & Raptors Daily Wallpaper",
         "url_img":f"https://stakemillion3-star.github.io/shield-wallpaper/wallpaper.jpg?v={version}"
     }]
-    with open("projectivy-wallpaper.json","w",encoding="utf-8") as f:
+    with open("p.json","w",encoding="utf-8") as f:
         json.dump(feed,f,ensure_ascii=False,indent=2)
         f.write("\n")
 
