@@ -299,7 +299,6 @@ def main():
     im=simple_section(im,20,450,1890,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
     im=simple_section(im,1930,450,1890,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
     im=simple_standings(im,45,1310,1840,430,(80,170,255,255),bcomp or "GROUP TABLE")
-    im=dock_backdrop(im)
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
