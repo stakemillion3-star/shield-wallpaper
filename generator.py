@@ -152,105 +152,70 @@ def matchup(e,with_score=False):
 def display_name(name):
     return "Bosna I Hercegovina" if name in ("Bosnia and Herzegovina","Bosnia & Herzegovina","Bosnia-Herzegovina","Bosnia") else name
 
-def draw_match(im,d,x,y,w,e,sport,score=False,emphasis="normal"):
+def draw_tv_match(im,d,x,y,w,e,sport,score=False,hero=False,accent=(255,255,255,255)):
     if not e or len(e["teams"])<2:
-        d.text((x+w//2,y+28),"—",anchor="mm",font=font(28,True),fill="white"); return
+        d.text((x+w//2,y+45),"—",anchor="mm",font=font(42,True),fill="white"); return
     left,right=e["teams"][0],e["teams"][1]
+    iw,ih=((150,100) if hero else (92,62))
+    li=team_icon(left[0],sport,(iw,ih)); ri=team_icon(right[0],sport,(iw,ih))
+    cy=y+(60 if hero else 42)
+    if li: im.alpha_composite(li,(x,int(cy-li.height/2)))
+    if ri: im.alpha_composite(ri,(x+w-ri.width,int(cy-ri.height/2)))
+    if score and e["completed"] and left[1] is not None and right[1] is not None:
+        middle=f"{left[1]}  –  {right[1]}"
+    else: middle="VS"
+    d.text((x+w//2,cy-12),middle,anchor="mm",font=font(52 if hero else 34,True),fill="white")
+    names=f"{display_name(left[0])}  •  {display_name(right[0])}"
+    d.text((x+w//2,cy+38),names,anchor="mm",font=font(27 if hero else 23,True),fill=(245,245,248,255))
+    d.text((x+w//2,cy+76),fmt_date(e["date"]),anchor="mm",font=font(25 if hero else 21,True),fill=accent if hero else (215,220,228,255))
 
-    # Fixed OUTER edges for every row. Larger NEXT logos grow inward,
-    # so a ruler down either panel hits the same logo edge every time.
-    if emphasis=="next":
-        box_w,box_h=112,76
-        mid_font,name_font=40,21
-        center_y=y+42
-    else:
-        box_w,box_h=84,59
-        mid_font,name_font=30,21
-        center_y=y+25
-
-    li=team_icon(left[0],sport,(box_w,box_h))
-    ri=team_icon(right[0],sport,(box_w,box_h))
-    left_edge=x
-    right_edge=x+w
-    if li:
-        im.alpha_composite(li,(left_edge,int(center_y-li.height/2)))
-    if ri:
-        im.alpha_composite(ri,(right_edge-ri.width,int(center_y-ri.height/2)))
-
-    mid=(f'{left[1]}  –  {right[1]}' if score and e["completed"] and left[1] is not None and right[1] is not None else "VS")
-    d.text((x+w//2,center_y-8),mid,anchor="mm",font=font(mid_font,True),fill="white")
-    d.text((x+w//2,center_y+27),f'{display_name(left[0])}  •  {display_name(right[0])}',anchor="mm",font=font(name_font,True),fill=(235,235,240,255))
-
-def standings_data(sport):
-    if sport=="soccer":
-        return [("1","Sweden","3","2","1","0","+3","7"),
-                ("2","Bosnia and Herzegovina","3","1","2","0","+2","5"),
-                ("3","Poland","3","1","1","1","+4","4"),
-                ("4","Romania","3","0","0","3","-9","0")]
-    return []
-
-def draw_standings(im,d,x,y,w,accent,competition_label):
+def tv_standings(im,d,x,y,w,accent,competition_label):
     rows=standings_data("soccer")
-    d.text((x,y),competition_label,font=font(27,True),fill=accent)
-    d.text((x+w,y),"P     W     D     L     GD    PTS",anchor="ra",font=font(21,True),fill=(225,230,238,255))
-    y+=38
+    d.text((x,y),competition_label,font=font(25,True),fill=accent)
+    d.text((x+w,y),"P   W   D   L   GD  PTS",anchor="ra",font=font(21,True),fill=(230,235,242,255))
+    y+=45
     for pos,name,p,w1,dr,l,gd,pts in rows:
         if "Bosnia" in name:
-            d.rounded_rectangle((x-8,y-4,x+w+5,y+30),radius=7,fill=(35,105,170,90))
-        icon=team_icon(name,"soccer",(38,25))
+            d.rounded_rectangle((x-8,y-5,x+w+5,y+35),radius=8,fill=(35,105,170,105))
+        icon=team_icon(name,"soccer",(42,28))
         d.text((x,y+2),pos+".",font=font(21,True),fill="white")
-        if icon: im.alpha_composite(icon,(x+48,y))
-        d.text((x+100,y+2),display_name(name),font=font(17,True),fill="white")
-        d.text((x+w,y+2),f"{p:>2}     {w1:>2}     {dr:>2}     {l:>2}     {gd:>3}     {pts:>2}",anchor="ra",font=font(17,True),fill="white")
-        y+=38
+        if icon: im.alpha_composite(icon,(x+45,y))
+        d.text((x+100,y+2),display_name(name),font=font(20,True),fill="white")
+        d.text((x+w,y+2),f"{p}   {w1}   {dr}   {l}   {gd:>3}   {pts}",anchor="ra",font=font(20,True),fill="white")
+        y+=43
 
-def section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
-    panel_h=1060 if sport=="soccer" else 780
-    im=panel(im,(x,y,x+w,y+panel_h),175)
+def tv_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
+    # Purpose-built 10-foot UI. Compact enough to leave the lower screen free for Projectivy apps.
+    h=1000 if sport=="soccer" else 790
+    im=panel(im,(x,y,x+w,y+h),190)
     d=ImageDraw.Draw(im)
-    hi=team_icon("Toronto Raptors","nba",(82,82)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(94,64))
-    hx=x+55
-    if hi:
-        im.alpha_composite(hi,(hx,y+25)); hx+=hi.width+24
-    d.text((hx,y+31),title,font=font(43,True),fill=accent)
-    if sport=="nba":
-        d.text((x+w-55,y+88),status_label or "—",anchor="ra",font=font(18,True),fill=accent)
-    d.line((x+55,y+118,x+w-55,y+118),fill=accent,width=3)
+    icon=team_icon("Toronto Raptors","nba",(100,100)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(115,78))
+    hx=x+48
+    if icon:
+        im.alpha_composite(icon,(hx,y+25)); hx+=icon.width+22
+    d.text((hx,y+38),title,font=font(48,True),fill=accent)
+    if status_label:
+        d.text((x+w-48,y+93),status_label,anchor="ra",font=font(21,True),fill=accent)
+    d.line((x+48,y+132,x+w-48,y+132),fill=accent,width=4)
 
-    # IDENTICAL section coordinates on both panels.
-    d.text((x+55,y+142),"LAST RESULT",font=font(21,True),fill=(200,205,215,255))
-    draw_match(im,d,x+60,y+178,w-120,last,sport,True,"normal")
-    if last:d.text((x+w//2,y+252),fmt_date(last["date"]),anchor="mm",font=font(22),fill=(195,200,210,255))
+    d.text((x+48,y+155),"LAST RESULT",font=font(22,True),fill=(215,220,230,255))
+    draw_tv_match(im,d,x+50,y+185,w-100,last,sport,True,False,accent)
 
-    # NEXT is intentionally much larger/brighter.
-    d.text((x+55,y+278),"NEXT",font=font(34,True),fill=accent)
+    d.text((x+48,y+330),"NEXT MATCH" if sport=="soccer" else "NEXT GAME",font=font(35,True),fill=accent)
     first=nxt[0] if nxt else None
-    draw_match(im,d,x+60,y+352,w-120,first,sport,False,"next")
-    if first:d.text((x+w//2,y+448),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
+    draw_tv_match(im,d,x+50,y+380,w-100,first,sport,False,True,accent)
 
-    d.text((x+55,y+460),"UPCOMING",font=font(21,True),fill=(200,205,215,255))
-    slots=[500,625]
-    for idx,event in enumerate(nxt[1:3]):
-        sy=y+slots[idx]
-        draw_match(im,d,x+60,sy,w-120,event,sport,False,"normal")
-        d.text((x+w//2,sy+68),fmt_date(event["date"]),anchor="mm",font=font(21),fill=(195,200,210,255))
-        if idx==0:d.line((x+70,sy+98,x+w-70,sy+98),fill=(255,255,255,40),width=2)
+    d.text((x+48,y+555),"UPCOMING",font=font(22,True),fill=(215,220,230,255))
+    for i,event in enumerate(nxt[1:3]):
+        sy=y+590+i*125
+        draw_tv_match(im,d,x+50,sy,w-100,event,sport,False,False,accent)
+        if i==0:d.line((x+60,sy+108,x+w-60,sy+108),fill=(255,255,255,45),width=2)
 
     if sport=="soccer":
-        d.line((x+55,y+755,x+w-55,y+755),fill=accent,width=2)
-        draw_standings(im,d,x+55,y+780,w-110,accent,competition_label or "GROUP TABLE")
+        d.line((x+48,y+825,x+w-48,y+825),fill=accent,width=2)
+        tv_standings(im,d,x+48,y+850,w-96,accent,competition_label or "GROUP TABLE")
     return im
 
-
-def scaled_section(base,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None,scale=1.38):
-    # Render the exact approved layout at its original geometry first.
-    panel_h=1060 if sport=="soccer" else 780
-    stage=Image.new("RGBA",(w,panel_h),(0,0,0,0))
-    stage=section(stage,0,0,w,title,last,nxt,accent,sport,status_label,competition_label)
-    # One and only one uniform transform: the completed panel is enlarged as a whole.
-    stage=stage.resize((round(w*scale),round(panel_h*scale)),Image.Resampling.LANCZOS)
-    base.alpha_composite(stage,(x,y))
-    return base
 
 def main():
     errors=[]
@@ -266,8 +231,8 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=scaled_section(im,55,510,1250,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp,scale=1.38)
-    im=scaled_section(im,2055,510,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase,scale=1.38)
+    im=tv_section(im,55,300,1680,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
+    im=tv_section(im,2105,300,1680,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
