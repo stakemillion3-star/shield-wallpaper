@@ -176,18 +176,18 @@ def place_icon(im,name,sport,cx,cy,size):
 def draw_result(im,d,x,y,w,e,sport,accent):
     cx=x+w/2
     if not e or len(e["teams"])<2:
-        centered_text(d,"NO RESULT AVAILABLE",cx,y+80,font(40,True),(225,230,238,255))
+        centered_text(d,"NO RESULT AVAILABLE",cx,y+80,font(32,True),(225,230,238,255))
         return
     left,right=e["teams"][0],e["teams"][1]
     left_cx=x+w*0.245
     right_cx=x+w*0.755
-    place_icon(im,left[0],sport,left_cx,y+65,(180,125))
-    place_icon(im,right[0],sport,right_cx,y+65,(180,125))
+    place_icon(im,left[0],sport,left_cx,y+65,(150,105))
+    place_icon(im,right[0],sport,right_cx,y+65,(150,105))
     score=(f"{left[1]}  –  {right[1]}"
            if left[1] is not None and right[1] is not None else "—")
-    centered_text(d,score,cx,y+65,font(68,True),(255,255,255,255))
-    centered_text(d,display_name(left[0]),left_cx,y+150,font(34,True),(248,248,250,255))
-    centered_text(d,display_name(right[0]),right_cx,y+150,font(34,True),(248,248,250,255))
+    centered_text(d,score,cx,y+65,font(60,True),(255,255,255,255))
+    centered_text(d,display_name(left[0]),left_cx,y+150,font(30,True),(248,248,250,255))
+    centered_text(d,display_name(right[0]),right_cx,y+150,font(30,True),(248,248,250,255))
 
 
 def draw_upcoming(im,d,x,y,w,e,sport,accent):
@@ -257,7 +257,7 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
     draw_upcoming(im,d,x+64,y+170,w-128,nxt[0] if nxt else None,sport,accent)
     d.line((x+58,y+535,x+w-58,y+535),fill=accent,width=3)
 
-    centered_text(d,"LAST RESULT",x+w/2,y+580,font(44,True),(224,229,238,255))
+    centered_text(d,"LAST RESULT",x+w/2,y+580,font(40,True),(224,229,238,255))
     draw_result(im,d,x+64,y+600,w-128,last,sport,accent)
     return im
 
@@ -278,7 +278,7 @@ def main():
     im=Image.alpha_composite(im,shade)
     im=simple_section(im,60,450,1800,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
     im=simple_section(im,1980,450,1800,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
-    im=simple_standings(im,68,1310,1820,450,(80,170,255,255),bcomp or "GROUP TABLE")
+    im=simple_standings(im,60,1300,1800,430,(80,170,255,255),bcomp or "GROUP TABLE")
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
