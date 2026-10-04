@@ -263,20 +263,18 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
 
 
 def dock_backdrop(im):
-    # Soft, dark fade under the launcher icons without covering the standings.
-    top=1730
-    region=im.crop((0,top,W,H)).convert("RGBA")
-    blurred=region.filter(ImageFilter.GaussianBlur(14))
-    softened=Image.blend(region,blurred,0.24)
-    fade=Image.new("L",(1,H-top))
-    for yy in range(H-top):
-        t=yy/max(1,H-top-1)
-        fade.putpixel((0,yy),int(72*(t**1.6)))
-    shade=Image.new("RGBA",region.size,(0,0,0,0))
-    shade.putalpha(fade.resize(region.size,Image.Resampling.BILINEAR))
-    im.paste(Image.alpha_composite(softened,shade),(0,top))
-    return im
-
+    # A visible dark navy glass dock, softened with a blurred patch of the same background.
+    box=(40,1780,W-40,H-52)
+    x0,y0,x1,y1=box
+    base=im.convert("RGBA")
+    patch=base.crop(box).filter(ImageFilter.GaussianBlur(22))
+    mask=Image.new("L",patch.size,0)
+    ImageDraw.Draw(mask).rounded_rectangle((0,0,patch.width-1,patch.height-1),radius=42,fill=255)
+    base.paste(patch,(x0,y0),mask)
+    dock=Image.new("RGBA",(W,H),(0,0,0,0))
+    ImageDraw.Draw(dock).rounded_rectangle(
+        box,radius=42,fill=(4,10,20,170),outline=(255,255,255,45),width=2)
+    return Image.alpha_composite(base,dock)
 
 def main():
     errors=[]
@@ -294,7 +292,8 @@ def main():
     im=Image.alpha_composite(im,shade)
     im=simple_section(im,20,450,1880,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
     im=simple_section(im,1940,450,1880,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
-    im=simple_standings(im,40,1300,1840,430,\n    im=dock_backdrop(im)(80,170,255,255),bcomp or "GROUP TABLE")
+    im=simple_standings(im,40,1300,1840,430,(80,170,255,255),bcomp or "GROUP TABLE")
+    im=dock_backdrop(im)
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
