@@ -215,8 +215,8 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
     # NEXT is intentionally much larger/brighter.
     d.text((x+55,y+278),"NEXT",font=font(34,True),fill=accent)
     first=nxt[0] if nxt else None
-    draw_match(im,d,x+60,y+334,w-120,first,sport,False,"next")
-    if first:d.text((x+w//2,y+430),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
+    draw_match(im,d,x+60,y+352,w-120,first,sport,False,"next")
+    if first:d.text((x+w//2,y+448),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
 
     d.text((x+55,y+460),"UPCOMING",font=font(16,True),fill=(200,205,215,255))
     slots=[500,625]
