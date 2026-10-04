@@ -142,19 +142,24 @@ def matchup(e,with_score=False):
 def display_name(name):
     return "Bosna I Hercegovina" if name in ("Bosnia and Herzegovina","Bosnia & Herzegovina","Bosnia-Herzegovina","Bosnia") else name
 
-def draw_match(im,d,x,y,w,e,sport,score=False,big=False):
+def draw_match(im,d,x,y,w,e,sport,score=False,emphasis="normal"):
     if not e or len(e["teams"])<2:
-        d.text((x+w//2,y+22),"—",anchor="mm",font=font(30,True),fill="white"); return
+        d.text((x+w//2,y+22),"—",anchor="mm",font=font(28,True),fill="white"); return
     left,right=e["teams"][0],e["teams"][1]
-    # Uniform logo boxes across Last Result / Next / Upcoming.
-    # NEXT gets emphasis from typography/spacing rather than inconsistent logo sizing.
-    sz=(72,52) if sport=="nba" else (72,48)
+    if emphasis=="next":
+        sz=(92,68) if sport=="nba" else (92,62)
+        mid_font,name_font=34,19
+        icon_y=0
+    else:
+        sz=(58,42) if sport=="nba" else (58,38)
+        mid_font,name_font=24,15
+        icon_y=6
     li=team_icon(left[0],sport,sz); ri=team_icon(right[0],sport,sz)
-    if li: im.alpha_composite(li,(x,y+4))
-    if ri: im.alpha_composite(ri,(x+w-ri.width,y+4))
+    if li: im.alpha_composite(li,(x, y+icon_y))
+    if ri: im.alpha_composite(ri,(x+w-ri.width, y+icon_y))
     mid=(f'{left[1]}  –  {right[1]}' if score and e["completed"] and left[1] is not None and right[1] is not None else "VS")
-    d.text((x+w//2,y+17),mid,anchor="mm",font=font(34 if big else 24,True),fill="white")
-    d.text((x+w//2,y+50),f'{display_name(left[0])}  •  {display_name(right[0])}',anchor="mm",font=font(18 if big else 16,True),fill=(235,235,240,255))
+    d.text((x+w//2,y+18),mid,anchor="mm",font=font(mid_font,True),fill="white")
+    d.text((x+w//2,y+50),f'{display_name(left[0])}  •  {display_name(right[0])}',anchor="mm",font=font(name_font,True),fill=(235,235,240,255))
 
 def standings_data(sport):
     if sport=="soccer":
@@ -199,14 +204,14 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
 
     d.text((x+55,y+300),"NEXT",font=font(21,True),fill=(215,220,230,255))
     first=nxt[0] if nxt else None
-    draw_match(im,d,x+45,y+334,w-90,first,sport,False,True)
+    draw_match(im,d,x+45,y+334,w-90,first,sport,False,"next")
     if first:d.text((x+w//2,y+410),fmt_date(first["date"]),anchor="mm",font=font(20,True),fill=accent)
 
     d.text((x+55,y+460),"UPCOMING",font=font(21,True),fill=(215,220,230,255))
     slots=[500,625]
     for idx,event in enumerate(nxt[1:3]):
         sy=y+slots[idx]
-        draw_match(im,d,x+60,sy,w-120,event,sport,False,False)
+        draw_match(im,d,x+60,sy,w-120,event,sport,False,"normal")
         d.text((x+w//2,sy+68),fmt_date(event["date"]),anchor="mm",font=font(17),fill=(195,200,210,255))
         if idx==0:d.line((x+70,sy+98,x+w-70,sy+98),fill=(255,255,255,40),width=2)
 
