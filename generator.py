@@ -147,25 +147,25 @@ def draw_match(im,d,x,y,w,e,sport,score=False,emphasis="normal"):
         d.text((x+w//2,y+28),"—",anchor="mm",font=font(28,True),fill="white"); return
     left,right=e["teams"][0],e["teams"][1]
 
-    # Use fixed visual logo slots, not raw downloaded-image dimensions.
-    # This keeps every left/right logo center perfectly aligned across rows.
+    # Fixed OUTER edges for every row. Larger NEXT logos grow inward,
+    # so a ruler down either panel hits the same logo edge every time.
     if emphasis=="next":
-        box_w,box_h=118,82
-        mid_font,name_font=42,22
-        center_y=y+38
+        box_w,box_h=112,76
+        mid_font,name_font=40,21
+        center_y=y+42
     else:
-        box_w,box_h=64,46
-        mid_font,name_font=23,15
+        box_w,box_h=62,44
+        mid_font,name_font=22,15
         center_y=y+25
 
     li=team_icon(left[0],sport,(box_w,box_h))
     ri=team_icon(right[0],sport,(box_w,box_h))
-    left_cx=x+box_w//2
-    right_cx=x+w-box_w//2
+    left_edge=x
+    right_edge=x+w
     if li:
-        im.alpha_composite(li,(int(left_cx-li.width/2),int(center_y-li.height/2)))
+        im.alpha_composite(li,(left_edge,int(center_y-li.height/2)))
     if ri:
-        im.alpha_composite(ri,(int(right_cx-ri.width/2),int(center_y-ri.height/2)))
+        im.alpha_composite(ri,(right_edge-ri.width,int(center_y-ri.height/2)))
 
     mid=(f'{left[1]}  –  {right[1]}' if score and e["completed"] and left[1] is not None and right[1] is not None else "VS")
     d.text((x+w//2,center_y-8),mid,anchor="mm",font=font(mid_font,True),fill="white")
@@ -213,10 +213,10 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
     if last:d.text((x+w//2,y+252),fmt_date(last["date"]),anchor="mm",font=font(17),fill=(195,200,210,255))
 
     # NEXT is intentionally much larger/brighter.
-    d.text((x+55,y+286),"NEXT",font=font(36,True),fill=accent)
+    d.text((x+55,y+278),"NEXT",font=font(34,True),fill=accent)
     first=nxt[0] if nxt else None
-    draw_match(im,d,x+30,y+326,w-60,first,sport,False,"next")
-    if first:d.text((x+w//2,y+424),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
+    draw_match(im,d,x+60,y+334,w-120,first,sport,False,"next")
+    if first:d.text((x+w//2,y+430),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
 
     d.text((x+55,y+460),"UPCOMING",font=font(16,True),fill=(200,205,215,255))
     slots=[500,625]
