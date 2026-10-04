@@ -171,9 +171,9 @@ def simple_match(im,d,x,y,w,e,sport,score=False,hero=False,accent=(255,255,255,2
     left_center=lx+(li.width/2 if li else iw/2)
     right_center=rx-(ri.width/2 if ri else iw/2)
     d.text((left_center,name_y),display_name(left[0]),anchor="mm",
-           font=font(34 if hero else 31,True),fill=(248,248,250,255))
+           font=font(36 if hero else 33,True),fill=(248,248,250,255))
     d.text((right_center,name_y),display_name(right[0]),anchor="mm",
-           font=font(34 if hero else 31,True),fill=(248,248,250,255))
+           font=font(36 if hero else 33,True),fill=(248,248,250,255))
 
     if score and left[1] is not None and right[1] is not None:
         # Large score isolated in the exact center.
@@ -184,8 +184,9 @@ def simple_match(im,d,x,y,w,e,sport,score=False,hero=False,accent=(255,255,255,2
         d.text((center_x,cy), "VS",anchor="mm",font=font(70,True),fill="white")
 
     # Bigger date/time for couch readability.
-    d.text((center_x,name_y+58),fmt_date(e["date"]),anchor="mm",
-           font=font(46 if hero else 41,True),fill=accent if hero else (235,238,245,255))
+    date_y=cy+(76 if hero else 66)
+    d.text((center_x,date_y),fmt_date(e["date"]),anchor="mm",
+           font=font(49 if hero else 44,True),fill=accent if hero else (235,238,245,255))
 
 
 def standings_data(sport):
@@ -198,31 +199,31 @@ def standings_data(sport):
 
 def simple_standings(im,d,x,y,w,accent,competition_label):
     rows=standings_data("soccer")
-    d.text((x,y),competition_label,font=font(39,True),fill=accent)
+    d.text((x,y),competition_label,font=font(44,True),fill=accent)
 
     # Absolute center-anchored columns. P is intentionally omitted.
     col_x=[x+w-400,x+w-300,x+w-200,x+w-100,x+w]
     labels=["W","D","L","GD","PTS"]
     for label,cx in zip(labels,col_x):
-        d.text((cx,y+3),label,anchor="ma",font=font(32,True),fill=(235,238,244,255))
+        d.text((cx,y+3),label,anchor="ma",font=font(36,True),fill=(235,238,244,255))
 
     y+=58
     for pos,name,p,w1,dr,l,gd,pts in rows:
         if "Bosnia" in name:
-            d.rounded_rectangle((x-8,y-6,x+w+22,y+47),radius=8,fill=(35,105,170,110))
-        icon=team_icon(name,"soccer",(64,43))
-        d.text((x,y+4),pos+".",font=font(32,True),fill="white")
-        if icon: im.alpha_composite(icon,(x+52,y))
-        d.text((x+132,y+4),display_name(name),font=font(31,True),fill="white")
+            d.rounded_rectangle((x-8,y-7,x+w+22,y+55),radius=9,fill=(35,105,170,110))
+        icon=team_icon(name,"soccer",(78,52))
+        d.text((x,y+4),pos+".",font=font(36,True),fill="white")
+        if icon: im.alpha_composite(icon,(x+58,y))
+        d.text((x+154,y+4),display_name(name),font=font(35,True),fill="white")
         vals=[w1,dr,l,gd,pts]
         for cx,val in zip(col_x,vals):
-            d.text((cx,y+4),str(val),anchor="ma",font=font(31,True),fill="white")
-        y+=58
+            d.text((cx,y+4),str(val),anchor="ma",font=font(35,True),fill="white")
+        y+=66
 
 
 def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
     # Minimal 10-foot dashboard: header, last result, next event, standings only.
-    h=1145 if sport=="soccer" else 775
+    h=1310 if sport=="soccer" else 850
     im=panel(im,(x,y,x+w,y+h),190)
     d=ImageDraw.Draw(im)
     header_icon=team_icon("Toronto Raptors","nba",(112,112)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(132,88))
@@ -237,13 +238,13 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
     d.text((x+58,y+174),"LAST RESULT",font=font(36,True),fill=(220,225,235,255))
     simple_match(im,d,x+65,y+225,w-130,last,sport,True,False,accent)
 
-    d.text((x+58,y+400),"NEXT MATCH" if sport=="soccer" else "NEXT GAME",font=font(58,True),fill=accent)
+    d.text((x+58,y+455),"NEXT MATCH" if sport=="soccer" else "NEXT GAME",font=font(58,True),fill=accent)
     first=nxt[0] if nxt else None
-    simple_match(im,d,x+65,y+500,w-130,first,sport,False,True,accent)
+    simple_match(im,d,x+65,y+555,w-130,first,sport,False,True,accent)
 
     if sport=="soccer":
-        d.line((x+58,y+720,x+w-58,y+720),fill=accent,width=3)
-        simple_standings(im,d,x+58,y+750,w-116,accent,competition_label or "GROUP TABLE")
+        d.line((x+58,y+825,x+w-58,y+825),fill=accent,width=3)
+        simple_standings(im,d,x+58,y+855,w-116,accent,competition_label or "GROUP TABLE")
     return im
 
 
