@@ -203,7 +203,7 @@ def simple_standings(im,d,x,y,w,accent,competition_label):
 
 def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
     # Minimal 10-foot dashboard: header, last result, next event, standings only.
-    h=920 if sport=="soccer" else 650
+    h=1040 if sport=="soccer" else 760
     im=panel(im,(x,y,x+w,y+h),190)
     d=ImageDraw.Draw(im)
     header_icon=team_icon("Toronto Raptors","nba",(112,112)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(132,88))
