@@ -10,6 +10,28 @@ UA={"User-Agent":"Mozilla/5.0 shield-wallpaper/1.0"}
 def get(url):
     r=requests.get(url,headers=UA,timeout=25); r.raise_for_status(); return r.json()
 
+def remote_image(url,size):
+    try:
+        r=requests.get(url,headers=UA,timeout=20); r.raise_for_status()
+        im=Image.open(io.BytesIO(r.content)).convert("RGBA")
+        im.thumbnail(size,Image.Resampling.LANCZOS)
+        return im
+    except Exception:
+        return None
+
+TEAM_ABBR={"Toronto Raptors":"tor","Miami Heat":"mia","LA Clippers":"lac","New York Knicks":"ny","Detroit Pistons":"det",
+"Chicago Bulls":"chi","Washington Wizards":"wsh","Minnesota Timberwolves":"min","Orlando Magic":"orl",
+"Los Angeles Lakers":"lal","Denver Nuggets":"den","Milwaukee Bucks":"mil","Memphis Grizzlies":"mem",
+"Boston Celtics":"bos","Philadelphia 76ers":"phi"}
+COUNTRY_CODE={"Bosnia and Herzegovina":"ba","Sweden":"se","Poland":"pl","Romania":"ro"}
+
+def team_icon(name,sport,size=(100,70)):
+    if sport=="nba":
+        ab=TEAM_ABBR.get(name)
+        return remote_image(f"https://a.espncdn.com/i/teamlogos/nba/500/{ab}.png",size) if ab else None
+    cc=COUNTRY_CODE.get(name)
+    return remote_image(f"https://flagcdn.com/w160/{cc}.png",size) if cc else None
+
 def font(size,bold=False):
     paths=[
       "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -117,43 +139,44 @@ def matchup(e,with_score=False):
         return f'{a[0]}  {a[1]}  –  {b[1]}  {b[0]}'
     return f'{a[0]}  vs  {b[0]}'
 
-def section(im,x,y,w,title,last,nxt,accent):
+def draw_match(im,d,x,y,w,e,sport,score=False,big=False):
+    if not e or len(e["teams"])<2:
+        d.text((x,y),"—",font=font(34,True),fill="white"); return
+    left,right=e["teams"][0],e["teams"][1]
+    sz=(94,66) if big else (68,48)
+    li=team_icon(left[0],sport,sz); ri=team_icon(right[0],sport,sz)
+    cy=y+8
+    if li: im.alpha_composite(li,(x,cy))
+    if ri: im.alpha_composite(ri,(x+w-ri.width,cy))
+    if score and e["completed"] and left[1] is not None and right[1] is not None:
+        mid=f'{left[1]}  –  {right[1]}'
+    else: mid="VS"
+    d.text((x+w//2,y+4),mid,anchor="ma",font=font(38 if big else 28,True),fill="white")
+    d.text((x+w//2,y+52),f'{left[0]}  •  {right[0]}',anchor="ma",font=font(22 if big else 19,True),fill=(235,235,240,255))
+
+def section(im,x,y,w,title,last,nxt,accent,sport):
     im=panel(im,(x,y,x+w,y+790),175)
     d=ImageDraw.Draw(im)
-    d.text((x+70,y+58),title,font=font(54,True),fill=accent)
+    # Header icon
+    hi=team_icon("Toronto Raptors","nba",(95,95)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(105,72))
+    hx=x+55
+    if hi:
+        im.alpha_composite(hi,(hx,y+35)); hx+=hi.width+28
+    d.text((hx,y+42),title,font=font(48,True),fill=accent)
     yy=y+125
-    d.text((x+70,yy),"LAST RESULT",font=font(28,True),fill=(210,215,225,255)); yy+=50
-    d.text((x+70,yy),matchup(last,True),font=font(33,True),fill="white"); yy+=58
-    if last:d.text((x+70,yy),fmt_date(last["date"]),font=font(27),fill=(190,195,205,255))
-    yy+=70
-    d.text((x+70,yy),"NEXT",font=font(28,True),fill=(210,215,225,255)); yy+=50
+    d.line((x+45,yy,x+w-45,yy),fill=accent,width=3); yy+=22
+    d.text((x+55,yy),"LAST RESULT",font=font(24,True),fill=(210,215,225,255)); yy+=38
+    draw_match(im,d,x+60,yy,w-120,last,sport,True,True); yy+=105
+    if last:d.text((x+w//2,yy),fmt_date(last["date"]),anchor="ma",font=font(22),fill=(190,195,205,255))
+    yy+=58
+    d.text((x+55,yy),"NEXT",font=font(24,True),fill=(210,215,225,255)); yy+=38
     first=nxt[0] if nxt else None
-    d.text((x+70,yy),matchup(first),font=font(36,True),fill="white"); yy+=64
-    if first:d.text((x+70,yy),fmt_date(first["date"]),font=font(30),fill=accent)
-    yy+=70
-    if len(nxt)>1:
-        d.text((x+70,yy),"UPCOMING",font=font(28,True),fill=(210,215,225,255)); yy+=55
-        for e in nxt[1:]:
-            d.text((x+70,yy),matchup(e),font=font(27,True),fill="white"); yy+=44
-            d.text((x+70,yy),fmt_date(e["date"]),font=font(25),fill=(190,195,205,255)); yy+=75
+    draw_match(im,d,x+60,yy,w-120,first,sport,False,True); yy+=105
+    if first:d.text((x+w//2,yy),fmt_date(first["date"]),anchor="ma",font=font(24,True),fill=accent)
+    yy+=62
+    d.text((x+55,yy),"UPCOMING",font=font(24,True),fill=(210,215,225,255)); yy+=38
+    for e in nxt[1:3]:
+        draw_match(im,d,x+60,yy,w-120,e,sport); yy+=62
+        d.text((x+w//2,yy),fmt_date(e["date"]),anchor="ma",font=font(19),fill=(190,195,205,255)); yy+=46
     return im
 
-def main():
-    errors=[]
-    try: bl,bn=bosnia()
-    except Exception as e: bl,bn=None,[]; errors.append(str(e))
-    try: rl,rn=raptors()
-    except Exception as e: rl,rn=None,[]; errors.append(str(e))
-    im=background().filter(ImageFilter.GaussianBlur(0.25)).convert("RGBA")
-    # dark cinematic vignette
-    shade=Image.new("RGBA",(W,H),(0,0,0,0)); sd=ImageDraw.Draw(shade)
-    sd.rectangle((0,0,W,H),fill=(0,0,0,35))
-    im=Image.alpha_composite(im,shade)
-    im=section(im,170,610,1250,"BOSNIA & HERZEGOVINA",bl,bn,(80,170,255,255))
-    im=section(im,2420,610,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255))
-    # Fail visibly rather than publish fabricated values.
-    if errors:
-        d=ImageDraw.Draw(im); d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
-    im.convert("RGB").save("wallpaper.jpg","JPEG",quality=93,optimize=True,progressive=True)
-
-if __name__=="__main__": main()
