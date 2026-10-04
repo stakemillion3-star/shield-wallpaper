@@ -181,13 +181,13 @@ def draw_result(im,d,x,y,w,e,sport,accent):
     left,right=e["teams"][0],e["teams"][1]
     left_cx=x+w*0.245
     right_cx=x+w*0.755
-    place_icon(im,left[0],sport,left_cx,y+80,(210,150))
-    place_icon(im,right[0],sport,right_cx,y+80,(210,150))
+    place_icon(im,left[0],sport,left_cx,y+65,(180,125))
+    place_icon(im,right[0],sport,right_cx,y+65,(180,125))
     score=(f"{left[1]}  –  {right[1]}"
            if left[1] is not None and right[1] is not None else "—")
-    centered_text(d,score,cx,y+80,font(78,True),(255,255,255,255))
-    centered_text(d,display_name(left[0]),left_cx,y+188,font(40,True),(248,248,250,255))
-    centered_text(d,display_name(right[0]),right_cx,y+188,font(40,True),(248,248,250,255))
+    centered_text(d,score,cx,y+65,font(68,True),(255,255,255,255))
+    centered_text(d,display_name(left[0]),left_cx,y+150,font(34,True),(248,248,250,255))
+    centered_text(d,display_name(right[0]),right_cx,y+150,font(34,True),(248,248,250,255))
 
 
 def draw_upcoming(im,d,x,y,w,e,sport,accent):
@@ -201,19 +201,19 @@ def draw_upcoming(im,d,x,y,w,e,sport,accent):
     def upcoming_icon_size(name):
         if sport=="soccer":
             # Matchup flags and logos are slightly smaller to open up the panel.
-            return (560,280) if "Bosnia" in name else (448,280)
-        return (280,280)
-    left_icon=place_icon(im,left[0],sport,left_cx,y+75,upcoming_icon_size(left[0]))
-    right_icon=place_icon(im,right[0],sport,right_cx,y+75,upcoming_icon_size(right[0]))
+            return (500,250) if "Bosnia" in name else (400,250)
+        return (250,250)
+    left_icon=place_icon(im,left[0],sport,left_cx,y+65,upcoming_icon_size(left[0]))
+    right_icon=place_icon(im,right[0],sport,right_cx,y+65,upcoming_icon_size(right[0]))
     vs_cx=cx
     if left_icon and right_icon:
         left_edge=left_cx+left_icon.width/2
         right_edge=right_cx-right_icon.width/2
         vs_cx=(left_edge+right_edge)/2
-    centered_text(d,"VS",vs_cx,y+75,font(104,True),(255,255,255,255))
-    centered_text(d,display_name(left[0]),left_cx,y+275,font(52,True),(248,248,250,255))
-    centered_text(d,display_name(right[0]),right_cx,y+275,font(52,True),(248,248,250,255))
-    centered_text(d,fmt_date(e["date"]),cx,y+355,font(58,True),accent)
+    centered_text(d,"VS",vs_cx,y+65,font(96,True),(255,255,255,255))
+    centered_text(d,display_name(left[0]),left_cx,y+245,font(48,True),(248,248,250,255))
+    centered_text(d,display_name(right[0]),right_cx,y+245,font(48,True),(248,248,250,255))
+    centered_text(d,fmt_date(e["date"]),cx,y+325,font(52,True),accent)
 
 
 def simple_standings(im,x,y,w,h,accent,competition_label):
@@ -246,19 +246,19 @@ def simple_standings(im,x,y,w,h,accent,competition_label):
 
 
 def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
-    h=960
+    h=860
     im=panel(im,(x,y,x+w,y+h),194)
     d=ImageDraw.Draw(im)
     if status_label:
-        d.text((x+w-58,y+70),status_label,anchor="rm",font=font(36,True),fill=accent)
+        d.text((x+w-58,y+60),status_label,anchor="rm",font=font(34,True),fill=accent)
 
     centered_text(d,"NEXT MATCH" if sport=="soccer" else "NEXT GAME",
-                  x+w/2,y+70,font(72,True),accent)
-    draw_upcoming(im,d,x+64,y+195,w-128,nxt[0] if nxt else None,sport,accent)
-    d.line((x+58,y+630,x+w-58,y+630),fill=accent,width=3)
+                  x+w/2,y+55,font(64,True),accent)
+    draw_upcoming(im,d,x+64,y+170,w-128,nxt[0] if nxt else None,sport,accent)
+    d.line((x+58,y+535,x+w-58,y+535),fill=accent,width=3)
 
-    centered_text(d,"LAST RESULT",x+w/2,y+690,font(50,True),(224,229,238,255))
-    draw_result(im,d,x+64,y+710,w-128,last,sport,accent)
+    centered_text(d,"LAST RESULT",x+w/2,y+580,font(44,True),(224,229,238,255))
+    draw_result(im,d,x+64,y+600,w-128,last,sport,accent)
     return im
 
 
@@ -276,9 +276,9 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=simple_section(im,48,400,1860,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
-    im=simple_section(im,1932,400,1860,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
-    im=simple_standings(im,68,1380,1820,450,(80,170,255,255),bcomp or "GROUP TABLE")
+    im=simple_section(im,60,430,1800,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
+    im=simple_section(im,1980,430,1800,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
+    im=simple_standings(im,68,1310,1820,450,(80,170,255,255),bcomp or "GROUP TABLE")
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
