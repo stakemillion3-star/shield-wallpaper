@@ -64,15 +64,25 @@ def fetch_schedule(url):
     future=[e for e in events if not e["completed"] and e["date"]>=now]
     return (past[-1] if past else None), future[:3]
 
+def nba_phase(last,nxt):
+    events=([last] if last else [])+(nxt or [])
+    details=" ".join((e.get("detail") or "")+" "+(e.get("name") or "") for e in events).lower()
+    if "preseason" in details: return "PRESEASON"
+    if "playoff" in details or "finals" in details: return "PLAYOFFS"
+    # NBA's 2026-27 regular season starts Oct 20 league-wide; Toronto opens Oct 21.
+    now=datetime.now(TZ)
+    if now < datetime(2026,10,18,tzinfo=TZ): return "PRESEASON"
+    return "REGULAR SEASON"
+
 def raptors():
-    # ESPN is used as the presentation feed; results are only shown when marked final.
+    # Structured schedule feed. Scores render only when the provider marks the game completed.
     urls=[
       "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/tor/schedule?season=2027",
       "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/28/schedule?season=2027"]
     for u in urls:
         try:
             last,nxt=fetch_schedule(u)
-            if last or nxt:return last,nxt
+            if last or nxt:return last,nxt,nba_phase(last,nxt)
         except Exception: pass
     raise RuntimeError("Raptors schedule unavailable")
 
@@ -91,7 +101,7 @@ def bosnia():
                 names=[t[0].lower() for t in e["teams"]]
                 return any(("bosnia" in n and "herzegovina" in n) for n in names)
             if all_events and all(is_bih(e) for e in all_events):
-                return last,nxt
+                return last,nxt,"UEFA NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4"
         except Exception: pass
     # Official UEFA 2026/27 B4 fixtures/results, used as a fail-closed fallback.
     # Times are 20:45 CET/CEST unless UEFA specifies otherwise; converted to Toronto.
@@ -108,7 +118,7 @@ def bosnia():
         ev.append({"date":dt,"state":"post" if done else "pre","completed":done,"detail":"",
                    "teams":[(a,sa,"home"),(b,sb,"away")],"name":f"{a} vs {b}"})
     now=datetime.now(TZ); past=[e for e in ev if e["completed"]]; future=[e for e in ev if not e["completed"] and e["date"]>=now]
-    return (past[-1] if past else None),future[:3]
+    return (past[-1] if past else None),future[:3],"UEFA NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4"
 
 def background():
     p="assets/background.jpg"
@@ -179,9 +189,9 @@ def standings_data(sport):
                 ("4","Romania","3","0","0","3","-9","0")]
     return []
 
-def draw_standings(im,d,x,y,w,accent):
+def draw_standings(im,d,x,y,w,accent,competition_label):
     rows=standings_data("soccer")
-    d.text((x,y),"UEFA NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4",font=font(19,True),fill=accent)
+    d.text((x,y),competition_label,font=font(19,True),fill=accent)
     d.text((x+w,y),"P     W     D     L     GD    PTS",anchor="ra",font=font(17,True),fill=(225,230,238,255))
     y+=38
     for pos,name,p,w1,dr,l,gd,pts in rows:
@@ -194,7 +204,7 @@ def draw_standings(im,d,x,y,w,accent):
         d.text((x+w,y+2),f"{p:>2}     {w1:>2}     {dr:>2}     {l:>2}     {gd:>3}     {pts:>2}",anchor="ra",font=font(17,True),fill="white")
         y+=38
 
-def section(im,x,y,w,title,last,nxt,accent,sport):
+def section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
     panel_h=1060 if sport=="soccer" else 780
     im=panel(im,(x,y,x+w,y+panel_h),175)
     d=ImageDraw.Draw(im)
@@ -204,7 +214,7 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
         im.alpha_composite(hi,(hx,y+25)); hx+=hi.width+24
     d.text((hx,y+31),title,font=font(43,True),fill=accent)
     if sport=="nba":
-        d.text((x+w-55,y+88),"PRESEASON",anchor="ra",font=font(18,True),fill=accent)
+        d.text((x+w-55,y+88),status_label or "—",anchor="ra",font=font(18,True),fill=accent)
     d.line((x+55,y+118,x+w-55,y+118),fill=accent,width=3)
 
     # IDENTICAL section coordinates on both panels.
@@ -228,28 +238,25 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
 
     if sport=="soccer":
         d.line((x+55,y+755,x+w-55,y+755),fill=accent,width=2)
-        draw_standings(im,d,x+55,y+780,w-110,accent)
+        draw_standings(im,d,x+55,y+780,w-110,accent,competition_label or "—")
     return im
 
 def main():
     errors=[]
     try:
-        bl,bn=bosnia()
+        bl,bn,bcomp=bosnia()
     except Exception as e:
-        bl,bn=None,[]; errors.append(str(e))
+        bl,bn,bcomp=None,[],"—"; errors.append(str(e))
     try:
-        rl,rn=raptors()
-        if rl and rl["date"].date().isoformat()=="2026-10-03":
-            rl["completed"]=True
-            rl["teams"]=[(n,("105" if "Toronto" in n else "129"),h) for n,s,h in rl["teams"]]
+        rl,rn,rphase=raptors()
     except Exception as e:
-        rl,rn=None,[]; errors.append(str(e))
+        rl,rn,rphase=None,[],"—"; errors.append(str(e))
     im=background().filter(ImageFilter.GaussianBlur(0.25)).convert("RGBA")
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=section(im,170,660,1250,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer")
-    im=im=section(im,2420,660,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba")
+    im=section(im,170,660,1250,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
+    im=section(im,2420,660,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
