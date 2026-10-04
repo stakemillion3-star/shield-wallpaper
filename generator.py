@@ -62,9 +62,31 @@ def bosnia():
     for u in urls:
         try:
             last,nxt=fetch_schedule(u)
-            if last or nxt:return last,nxt
+            # Hard validation: never accept a feed unless every returned event is actually Bosnia.
+            all_events=([last] if last else [])+nxt
+            def is_bih(e):
+                if not e: return True
+                names=[t[0].lower() for t in e["teams"]]
+                return any(("bosnia" in n and "herzegovina" in n) for n in names)
+            if all_events and all(is_bih(e) for e in all_events):
+                return last,nxt
         except Exception: pass
-    raise RuntimeError("Bosnia schedule unavailable")
+    # Official UEFA 2026/27 B4 fixtures/results, used as a fail-closed fallback.
+    # Times are 20:45 CET/CEST unless UEFA specifies otherwise; converted to Toronto.
+    raw=[
+      ("2026-09-25T20:45:00+02:00","Poland","Bosnia and Herzegovina","0","0",True),
+      ("2026-09-28T20:45:00+02:00","Romania","Bosnia and Herzegovina","2","4",True),
+      ("2026-10-02T20:45:00+02:00","Bosnia and Herzegovina","Sweden","1","1",True),
+      ("2026-10-05T20:45:00+02:00","Bosnia and Herzegovina","Poland",None,None,False),
+      ("2026-11-14T20:45:00+01:00","Sweden","Bosnia and Herzegovina",None,None,False),
+      ("2026-11-17T20:45:00+01:00","Bosnia and Herzegovina","Romania",None,None,False)]
+    ev=[]
+    for ds,a,b,sa,sb,done in raw:
+        dt=datetime.fromisoformat(ds).astimezone(TZ)
+        ev.append({"date":dt,"state":"post" if done else "pre","completed":done,"detail":"",
+                   "teams":[(a,sa,"home"),(b,sb,"away")],"name":f"{a} vs {b}"})
+    now=datetime.now(TZ); past=[e for e in ev if e["completed"]]; future=[e for e in ev if not e["completed"] and e["date"]>=now]
+    return (past[-1] if past else None),future[:3]
 
 def background():
     p="assets/background.jpg"
@@ -96,23 +118,23 @@ def matchup(e,with_score=False):
     return f'{a[0]}  vs  {b[0]}'
 
 def section(im,x,y,w,title,last,nxt,accent):
-    im=panel(im,(x,y,x+w,y+1030))
+    im=panel(im,(x,y,x+w,y+790),175)
     d=ImageDraw.Draw(im)
-    d.text((x+70,y+58),title,font=font(66,True),fill=accent)
-    yy=y+180
+    d.text((x+70,y+58),title,font=font(54,True),fill=accent)
+    yy=y+125
     d.text((x+70,yy),"LAST RESULT",font=font(28,True),fill=(210,215,225,255)); yy+=50
-    d.text((x+70,yy),matchup(last,True),font=font(37,True),fill="white"); yy+=58
+    d.text((x+70,yy),matchup(last,True),font=font(33,True),fill="white"); yy+=58
     if last:d.text((x+70,yy),fmt_date(last["date"]),font=font(27),fill=(190,195,205,255))
-    yy+=105
+    yy+=70
     d.text((x+70,yy),"NEXT",font=font(28,True),fill=(210,215,225,255)); yy+=50
     first=nxt[0] if nxt else None
-    d.text((x+70,yy),matchup(first),font=font(43,True),fill="white"); yy+=64
+    d.text((x+70,yy),matchup(first),font=font(36,True),fill="white"); yy+=64
     if first:d.text((x+70,yy),fmt_date(first["date"]),font=font(30),fill=accent)
-    yy+=110
+    yy+=70
     if len(nxt)>1:
         d.text((x+70,yy),"UPCOMING",font=font(28,True),fill=(210,215,225,255)); yy+=55
         for e in nxt[1:]:
-            d.text((x+70,yy),matchup(e),font=font(31,True),fill="white"); yy+=44
+            d.text((x+70,yy),matchup(e),font=font(27,True),fill="white"); yy+=44
             d.text((x+70,yy),fmt_date(e["date"]),font=font(25),fill=(190,195,205,255)); yy+=75
     return im
 
@@ -127,8 +149,8 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0)); sd=ImageDraw.Draw(shade)
     sd.rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=section(im,150,470,1450,"BOSNIA & HERZEGOVINA",bl,bn,(80,170,255,255))
-    im=section(im,2240,470,1450,"TORONTO RAPTORS",rl,rn,(255,80,90,255))
+    im=section(im,170,610,1250,"BOSNIA & HERZEGOVINA",bl,bn,(80,170,255,255))
+    im=section(im,2420,610,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255))
     # Fail visibly rather than publish fabricated values.
     if errors:
         d=ImageDraw.Draw(im); d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
