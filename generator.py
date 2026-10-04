@@ -160,12 +160,12 @@ def draw_match(im,d,x,y,w,e,sport,score=False,emphasis="normal"):
     # Fixed OUTER edges for every row. Larger NEXT logos grow inward,
     # so a ruler down either panel hits the same logo edge every time.
     if emphasis=="next":
-        box_w,box_h=112,76
-        mid_font,name_font=40,21
+        box_w,box_h=138,94
+        mid_font,name_font=48,27
         center_y=y+42
     else:
-        box_w,box_h=62,44
-        mid_font,name_font=22,15
+        box_w,box_h=78,55
+        mid_font,name_font=29,20
         center_y=y+25
 
     li=team_icon(left[0],sport,(box_w,box_h))
@@ -191,16 +191,16 @@ def standings_data(sport):
 
 def draw_standings(im,d,x,y,w,accent,competition_label):
     rows=standings_data("soccer")
-    d.text((x,y),competition_label,font=font(19,True),fill=accent)
-    d.text((x+w,y),"P     W     D     L     GD    PTS",anchor="ra",font=font(17,True),fill=(225,230,238,255))
+    d.text((x,y),competition_label,font=font(23,True),fill=accent)
+    d.text((x+w,y),"P     W     D     L     GD    PTS",anchor="ra",font=font(20,True),fill=(225,230,238,255))
     y+=38
     for pos,name,p,w1,dr,l,gd,pts in rows:
         if "Bosnia" in name:
             d.rounded_rectangle((x-8,y-4,x+w+5,y+30),radius=7,fill=(35,105,170,90))
         icon=team_icon(name,"soccer",(38,25))
-        d.text((x,y+2),pos+".",font=font(17,True),fill="white")
+        d.text((x,y+2),pos+".",font=font(20,True),fill="white")
         if icon: im.alpha_composite(icon,(x+48,y))
-        d.text((x+100,y+2),display_name(name),font=font(17,True),fill="white")
+        d.text((x+100,y+2),display_name(name),font=font(20,True),fill="white")
         d.text((x+w,y+2),f"{p:>2}     {w1:>2}     {dr:>2}     {l:>2}     {gd:>3}     {pts:>2}",anchor="ra",font=font(17,True),fill="white")
         y+=38
 
@@ -212,28 +212,28 @@ def section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_l
     hx=x+55
     if hi:
         im.alpha_composite(hi,(hx,y+25)); hx+=hi.width+24
-    d.text((hx,y+31),title,font=font(43,True),fill=accent)
+    d.text((hx,y+31),title,font=font(49,True),fill=accent)
     if sport=="nba":
-        d.text((x+w-55,y+88),status_label or "—",anchor="ra",font=font(18,True),fill=accent)
+        d.text((x+w-55,y+88),status_label or "—",anchor="ra",font=font(23,True),fill=accent)
     d.line((x+55,y+118,x+w-55,y+118),fill=accent,width=3)
 
     # IDENTICAL section coordinates on both panels.
-    d.text((x+55,y+142),"LAST RESULT",font=font(16,True),fill=(200,205,215,255))
+    d.text((x+55,y+142),"LAST RESULT",font=font(21,True),fill=(200,205,215,255))
     draw_match(im,d,x+60,y+178,w-120,last,sport,True,"normal")
-    if last:d.text((x+w//2,y+252),fmt_date(last["date"]),anchor="mm",font=font(17),fill=(195,200,210,255))
+    if last:d.text((x+w//2,y+252),fmt_date(last["date"]),anchor="mm",font=font(22),fill=(195,200,210,255))
 
     # NEXT is intentionally much larger/brighter.
-    d.text((x+55,y+278),"NEXT",font=font(34,True),fill=accent)
+    d.text((x+55,y+278),"NEXT",font=font(42,True),fill=accent)
     first=nxt[0] if nxt else None
     draw_match(im,d,x+60,y+352,w-120,first,sport,False,"next")
-    if first:d.text((x+w//2,y+448),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
+    if first:d.text((x+w//2,y+448),fmt_date(first["date"]),anchor="mm",font=font(28,True),fill=accent)
 
-    d.text((x+55,y+460),"UPCOMING",font=font(16,True),fill=(200,205,215,255))
+    d.text((x+55,y+460),"UPCOMING",font=font(21,True),fill=(200,205,215,255))
     slots=[500,625]
     for idx,event in enumerate(nxt[1:3]):
         sy=y+slots[idx]
         draw_match(im,d,x+60,sy,w-120,event,sport,False,"normal")
-        d.text((x+w//2,sy+68),fmt_date(event["date"]),anchor="mm",font=font(16),fill=(195,200,210,255))
+        d.text((x+w//2,sy+68),fmt_date(event["date"]),anchor="mm",font=font(21),fill=(195,200,210,255))
         if idx==0:d.line((x+70,sy+98,x+w-70,sy+98),fill=(255,255,255,40),width=2)
 
     if sport=="soccer":
