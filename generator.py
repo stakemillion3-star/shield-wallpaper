@@ -168,8 +168,13 @@ def simple_match(im,d,x,y,w,e,sport,score=False,hero=False,accent=(255,255,255,2
         # Result: score centered, team names directly underneath with no separator bullet.
         d.text((center_x,cy-22),f"{left[1]}  –  {right[1]}",anchor="mm",
                font=font(70,True),fill="white")
-        d.text((center_x,cy+40),f"{display_name(left[0])}     {display_name(right[0])}",
-               anchor="mm",font=font(40,True),fill=(248,248,250,255))
+        name_y=cy+40
+        left_name_x=x+w*0.39
+        right_name_x=x+w*0.61
+        d.text((left_name_x,name_y),display_name(left[0]),anchor="mm",
+               font=font(40,True),fill=(248,248,250,255))
+        d.text((right_name_x,name_y),display_name(right[0]),anchor="mm",
+               font=font(40,True),fill=(248,248,250,255))
     else:
         # Next event: one centered matchup line, TEAM A VS TEAM B.
         d.text((center_x,cy+12),f"{display_name(left[0])}  VS  {display_name(right[0])}",
@@ -211,7 +216,7 @@ def simple_standings(im,d,x,y,w,accent,competition_label):
 
 def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
     # Minimal 10-foot dashboard: header, last result, next event, standings only.
-    h=1015 if sport=="soccer" else 775
+    h=1080 if sport=="soccer" else 775
     im=panel(im,(x,y,x+w,y+h),190)
     d=ImageDraw.Draw(im)
     header_icon=team_icon("Toronto Raptors","nba",(112,112)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(132,88))
