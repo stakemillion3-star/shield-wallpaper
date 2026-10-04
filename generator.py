@@ -203,7 +203,7 @@ def simple_standings(im,d,x,y,w,accent,competition_label):
     y+=58
     for pos,name,p,w1,dr,l,gd,pts in rows:
         if "Bosnia" in name:
-            d.rounded_rectangle((x-8,y-6,x+w+5,y+47),radius=8,fill=(35,105,170,110))
+            d.rounded_rectangle((x-8,y-6,x+w+22,y+47),radius=8,fill=(35,105,170,110))
         icon=team_icon(name,"soccer",(64,43))
         d.text((x,y+4),pos+".",font=font(32,True),fill="white")
         if icon: im.alpha_composite(icon,(x+52,y))
@@ -216,7 +216,7 @@ def simple_standings(im,d,x,y,w,accent,competition_label):
 
 def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
     # Minimal 10-foot dashboard: header, last result, next event, standings only.
-    h=1080 if sport=="soccer" else 775
+    h=1145 if sport=="soccer" else 775
     im=panel(im,(x,y,x+w,y+h),190)
     d=ImageDraw.Draw(im)
     header_icon=team_icon("Toronto Raptors","nba",(112,112)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(132,88))
