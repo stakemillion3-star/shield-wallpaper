@@ -169,6 +169,14 @@ def draw_tv_match(im,d,x,y,w,e,sport,score=False,hero=False,accent=(255,255,255,
     d.text((x+w//2,cy+38),names,anchor="mm",font=font(27 if hero else 23,True),fill=(245,245,248,255))
     d.text((x+w//2,cy+76),fmt_date(e["date"]),anchor="mm",font=font(25 if hero else 21,True),fill=accent if hero else (215,220,228,255))
 
+def standings_data(sport):
+    if sport=="soccer":
+        return [("1","Sweden","3","2","1","0","+3","7"),
+                ("2","Bosnia and Herzegovina","3","1","2","0","+2","5"),
+                ("3","Poland","3","1","1","1","+4","4"),
+                ("4","Romania","3","0","0","3","-9","0")]
+    return []
+
 def tv_standings(im,d,x,y,w,accent,competition_label):
     rows=standings_data("soccer")
     d.text((x,y),competition_label,font=font(25,True),fill=accent)
