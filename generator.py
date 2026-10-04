@@ -181,7 +181,7 @@ def standings_data(sport):
 
 def draw_standings(im,d,x,y,w,accent):
     rows=standings_data("soccer")
-    d.text((x,y),"GROUP TABLE",font=font(22,True),fill=accent)
+    d.text((x,y),"UEFA NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4",font=font(19,True),fill=accent)
     d.text((x+w,y),"P     W     D     L     GD    PTS",anchor="ra",font=font(17,True),fill=(225,230,238,255))
     y+=38
     for pos,name,p,w1,dr,l,gd,pts in rows:
