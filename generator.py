@@ -179,7 +179,7 @@ def draw_standings(im,d,x,y,w,accent):
 
 def section(im,x,y,w,title,last,nxt,accent,sport):
     # Reference-inspired compact/tall panel.
-    panel_h=1060 if sport=="soccer" else 900
+    panel_h=1060 if sport=="soccer" else 780
     im=panel(im,(x,y,x+w,y+panel_h),175)
     d=ImageDraw.Draw(im)
     hi=team_icon("Toronto Raptors","nba",(82,82)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(94,64))
@@ -192,13 +192,13 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
     d.text((x+55,y+142),"LAST RESULT",font=font(21,True),fill=(215,220,230,255))
     draw_match(im,d,x+60,y+178,w-120,last,sport,True,True)
     if last:d.text((x+w//2,y+252),fmt_date(last["date"]),anchor="mm",font=font(18),fill=(195,200,210,255))
-    if sport=="nba": d.text((x+w-60,y+145),"PRESEASON",anchor="ra",font=font(18,True),fill=accent)
+    if sport=="nba": d.text((x+w//2,y+278),"PRESEASON",anchor="mm",font=font(16,True),fill=accent)
 
     d.text((x+55,y+300),"NEXT",font=font(21,True),fill=(215,220,230,255))
     first=nxt[0] if nxt else None
     draw_match(im,d,x+60,y+336,w-120,first,sport,False,True)
     if first:d.text((x+w//2,y+410),fmt_date(first["date"]),anchor="mm",font=font(20,True),fill=accent)
-    if sport=="nba": d.text((x+w-60,y+303),"PRESEASON",anchor="ra",font=font(17,True),fill=accent)
+    if sport=="nba": d.text((x+w//2,y+436),"PRESEASON",anchor="mm",font=font(16,True),fill=accent)
 
     d.text((x+55,y+460),"UPCOMING",font=font(21,True),fill=(215,220,230,255))
     slots=[500,625]
@@ -206,7 +206,7 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
         sy=y+slots[idx]
         draw_match(im,d,x+60,sy,w-120,event,sport,False,False)
         d.text((x+w//2,sy+68),fmt_date(event["date"]),anchor="mm",font=font(17),fill=(195,200,210,255))
-        if sport=="nba": d.text((x+w-60,sy+8),"PRESEASON",anchor="ra",font=font(15,True),fill=accent)
+        if sport=="nba": d.text((x+w//2,sy+88),"PRESEASON",anchor="mm",font=font(16,True),fill=accent)
         if idx==0:d.line((x+70,sy+98,x+w-70,sy+98),fill=(255,255,255,40),width=2)
 
     if sport=="soccer":
