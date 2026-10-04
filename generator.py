@@ -193,17 +193,17 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
     d.line((x+45,y+125,x+w-45,y+125),fill=accent,width=3)
 
     # Fixed vertical slots; no cumulative yy math, so rows cannot collide.
-    d.text((x+55,y+158),"LAST RESULT",font=font(23,True),fill=(210,215,225,255))
-    draw_match(im,d,x+60,y+198,w-120,last,sport,True,True)
-    if last:d.text((x+w//2,y+273),fmt_date(last["date"]),anchor="mm",font=font(20),fill=(190,195,205,255))
+    d.text((x+55,y+170),"LAST RESULT",font=font(23,True),fill=(210,215,225,255))
+    draw_match(im,d,x+60,y+210,w-120,last,sport,True,True)
+    if last:d.text((x+w//2,y+285),fmt_date(last["date"]),anchor="mm",font=font(20),fill=(190,195,205,255))
 
-    d.text((x+55,y+333),"NEXT",font=font(23,True),fill=(210,215,225,255))
+    d.text((x+55,y+345),"NEXT",font=font(23,True),fill=(210,215,225,255))
     first=nxt[0] if nxt else None
-    draw_match(im,d,x+60,y+373,w-120,first,sport,False,True)
-    if first:d.text((x+w//2,y+448),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
+    draw_match(im,d,x+60,y+385,w-120,first,sport,False,True)
+    if first:d.text((x+w//2,y+460),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
 
-    d.text((x+55,y+513),"UPCOMING",font=font(23,True),fill=(210,215,225,255))
-    slots=[553,708]
+    d.text((x+55,y+525),"UPCOMING",font=font(23,True),fill=(210,215,225,255))
+    slots=[565,720]
     for idx,event in enumerate(nxt[1:3]):
         sy=y+slots[idx]
         draw_match(im,d,x+60,sy,w-120,event,sport,False,False)
@@ -228,8 +228,8 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=section(im,170,660,1250,"BOSNIA & HERZEGOVINA",bl,bn,(80,170,255,255),"soccer")
-    im=section(im,2420,660,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba")
+    im=im=section(im,170,660,1250,"BOSNIA & HERZEGOVINA",bl,bn,(80,170,255,255),"soccer")
+    im=im=section(im,2420,660,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba")
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
