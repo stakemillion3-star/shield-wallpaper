@@ -1,4 +1,4 @@
-import io, os, requests
+import io, json, os, requests
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -283,6 +283,18 @@ def main():
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
     im.convert("RGB").save("wallpaper.jpg","JPEG",quality=96,optimize=True,progressive=True)
+
+    # Overflight wallpaper provider feed. The daily query value gives Projectivy
+    # a new image URI after each scheduled render, avoiding stale image caches.
+    version=datetime.now(TZ).strftime("%Y%m%d")
+    feed=[{
+        "location":"Shield Sports",
+        "title":"Bosnia & Raptors Daily Wallpaper",
+        "url_img":f"https://stakemillion3-star.github.io/shield-wallpaper/wallpaper.jpg?v={version}"
+    }]
+    with open("projectivy-wallpaper.json","w",encoding="utf-8") as f:
+        json.dump(feed,f,ensure_ascii=False,indent=2)
+        f.write("\\n")
 
 if __name__=="__main__":
     main()
