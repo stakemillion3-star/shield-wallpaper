@@ -292,7 +292,7 @@ def main():
         rl,rn,rphase=raptors()
     except Exception as e:
         rl,rn,rphase=None,[],"—"; errors.append(str(e))
-    im=background().filter(ImageFilter.GaussianBlur(0.25)).convert("RGBA")
+    im=background().convert("RGBA")
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
