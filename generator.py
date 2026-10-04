@@ -183,16 +183,19 @@ def draw_standings(im,d,x,y,w,sport,accent):
         d.text((x+w,y),"0–1   •   Point Diff −24",anchor="ra",font=font(19,True),fill=accent)
 
 def section(im,x,y,w,title,last,nxt,accent,sport):
-    im=panel(im,(x,y,x+w,y+1130),175)
+    # Extend downward only; top stays fixed.
+    im=panel(im,(x,y,x+w,y+1230),175)
     d=ImageDraw.Draw(im)
     hi=team_icon("Toronto Raptors","nba",(88,88)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(100,68))
     hx=x+55
     if hi:
-        im.alpha_composite(hi,(hx,y+34)); hx+=hi.width+25
-    d.text((hx,y+42),title,font=font(46,True),fill=accent)
-    d.line((x+45,y+125,x+w-45,y+125),fill=accent,width=3)
+        im.alpha_composite(hi,(hx,y+28)); hx+=hi.width+25
+    d.text((hx,y+28),title,font=font(46,True),fill=accent)
+    subtitle="NBA • PRESEASON" if sport=="nba" else "UEFA NATIONS LEAGUE"
+    d.text((hx,y+82),subtitle,font=font(18,True),fill=(195,200,210,255))
+    # Divider deliberately below logo + title + subtitle.
+    d.line((x+55,y+145,x+w-55,y+145),fill=accent,width=3)
 
-    # Fixed vertical slots; no cumulative yy math, so rows cannot collide.
     d.text((x+55,y+170),"LAST RESULT",font=font(23,True),fill=(210,215,225,255))
     draw_match(im,d,x+60,y+210,w-120,last,sport,True,True)
     if last:d.text((x+w//2,y+285),fmt_date(last["date"]),anchor="mm",font=font(20),fill=(190,195,205,255))
@@ -209,6 +212,9 @@ def section(im,x,y,w,title,last,nxt,accent,sport):
         draw_match(im,d,x+60,sy,w-120,event,sport,False,False)
         d.text((x+w//2,sy+78),fmt_date(event["date"]),anchor="mm",font=font(18),fill=(190,195,205,255))
         if idx==0:d.line((x+70,sy+112,x+w-70,sy+112),fill=(255,255,255,35),width=2)
+
+    d.line((x+55,y+885,x+w-55,y+885),fill=(255,255,255,55),width=2)
+    draw_standings(im,d,x+55,y+910,w-110,sport,accent)
     return im
 
 def main():
@@ -228,7 +234,7 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=im=section(im,170,660,1250,"BOSNIA & HERZEGOVINA",bl,bn,(80,170,255,255),"soccer")
+    im=section(im,170,660,1250,"BOSNIA & HERZEGOVINA",bl,bn,(80,170,255,255),"soccer")
     im=im=section(im,2420,660,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba")
     if errors:
         d=ImageDraw.Draw(im)
