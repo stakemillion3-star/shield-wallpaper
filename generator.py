@@ -284,7 +284,7 @@ def main():
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
     im=scaled_section(im,55,650,1250,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp,scale=1.38)
-    im=scaled_section(im,2055,650,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase,scale=1.22)
+    im=scaled_section(im,2055,650,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase,scale=1.38)
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
