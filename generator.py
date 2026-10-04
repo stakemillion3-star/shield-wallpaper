@@ -263,24 +263,24 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
 
 
 def dock_backdrop(im):
-    # Lightly soften the wallpaper across the full-width band, keeping the
-    # background's original colour and detail so it never reads as a dock.
+    # Very subtly darken the wallpaper in a full-width band so Shield icons
+    # stand out while the background remains sharp and keeps its natural colour.
     top=1765
     bottom=2135
     region=im.crop((0,top,W,bottom)).convert("RGBA")
-    blurred=region.filter(ImageFilter.GaussianBlur(6))
 
     mask=Image.new("L",(1,bottom-top))
     fade=36
-    max_blur=0.22
+    max_shade=0.12
     for yy in range(bottom-top):
         edge=min(1.0,(yy+1)/fade,(bottom-top-yy)/fade)
-        strength=max(0.0,min(1.0,edge))*max_blur
+        strength=max(0.0,min(1.0,edge))*max_shade
         mask.putpixel((0,yy),int(255*strength))
     mask=mask.resize(region.size,Image.Resampling.BILINEAR)
 
-    softened=Image.composite(blurred,region,mask)
-    im.paste(softened,(0,top))
+    shade=Image.new("RGBA",region.size,(0,0,0,255))
+    darkened=Image.composite(shade,region,mask)
+    im.paste(darkened,(0,top))
     return im
 def main():
     errors=[]
