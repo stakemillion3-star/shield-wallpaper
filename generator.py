@@ -160,13 +160,15 @@ def simple_match(im,d,x,y,w,e,sport,score=False,hero=False,accent=(255,255,255,2
     iw,ih=((270,175) if hero else (190,125))
     li=team_icon(left[0],sport,(iw,ih)); ri=team_icon(right[0],sport,(iw,ih))
     cy=y+(82 if hero else 62)
-    if li: im.alpha_composite(li,(x,int(cy-li.height/2)))
-    if ri: im.alpha_composite(ri,(x+w-ri.width,int(cy-ri.height/2)))
+    logo_inset=28
+    if li: im.alpha_composite(li,(x+logo_inset,int(cy-li.height/2)))
+    if ri: im.alpha_composite(ri,(x+w-logo_inset-ri.width,int(cy-ri.height/2)))
     middle=(f"{left[1]}  –  {right[1]}" if score and left[1] is not None and right[1] is not None else "VS")
-    d.text((x+w//2,cy-22),middle,anchor="mm",font=font(90 if hero else 70,True),fill="white")
-    d.text((x+w//2,cy+40),f"{display_name(left[0])}  •  {display_name(right[0])}",
+    center_x=x+w//2
+    d.text((center_x,cy-22),middle,anchor="mm",font=font(90 if hero else 70,True),fill="white")
+    d.text((center_x,cy+40),f"{display_name(left[0])}  •  {display_name(right[0])}",
            anchor="mm",font=font(47 if hero else 40,True),fill=(248,248,250,255))
-    d.text((x+w//2,cy+88),fmt_date(e["date"]),anchor="mm",
+    d.text((center_x,cy+88),fmt_date(e["date"]),anchor="mm",
            font=font(40 if hero else 35,True),fill=accent if hero else (225,230,238,255))
 
 def standings_data(sport):
@@ -216,11 +218,11 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
     d.line((x+58,y+145,x+w-58,y+145),fill=accent,width=4)
 
     d.text((x+58,y+174),"LAST RESULT",font=font(36,True),fill=(220,225,235,255))
-    simple_match(im,d,x+65,y+210,w-130,last,sport,True,False,accent)
+    simple_match(im,d,x+65,y+225,w-130,last,sport,True,False,accent)
 
     d.text((x+58,y+400),"NEXT MATCH" if sport=="soccer" else "NEXT GAME",font=font(58,True),fill=accent)
     first=nxt[0] if nxt else None
-    simple_match(im,d,x+65,y+485,w-130,first,sport,False,True,accent)
+    simple_match(im,d,x+65,y+500,w-130,first,sport,False,True,accent)
 
     if sport=="soccer":
         d.line((x+58,y+675,x+w-58,y+675),fill=accent,width=3)
