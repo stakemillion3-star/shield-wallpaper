@@ -152,76 +152,62 @@ def matchup(e,with_score=False):
 def display_name(name):
     return "Bosna I Hercegovina" if name in ("Bosnia and Herzegovina","Bosnia & Herzegovina","Bosnia-Herzegovina","Bosnia") else name
 
-def draw_tv_match(im,d,x,y,w,e,sport,score=False,hero=False,accent=(255,255,255,255)):
+def simple_match(im,d,x,y,w,e,sport,score=False,hero=False,accent=(255,255,255,255)):
     if not e or len(e["teams"])<2:
-        d.text((x+w//2,y+45),"—",anchor="mm",font=font(42,True),fill="white"); return
+        d.text((x+w//2,y+60),"—",anchor="mm",font=font(52,True),fill="white"); return
     left,right=e["teams"][0],e["teams"][1]
-    iw,ih=((150,100) if hero else (92,62))
+    # Exact shared outer edges on every row; hero logos grow inward only.
+    iw,ih=((180,120) if hero else (125,82))
     li=team_icon(left[0],sport,(iw,ih)); ri=team_icon(right[0],sport,(iw,ih))
-    cy=y+(60 if hero else 42)
+    cy=y+(82 if hero else 62)
     if li: im.alpha_composite(li,(x,int(cy-li.height/2)))
     if ri: im.alpha_composite(ri,(x+w-ri.width,int(cy-ri.height/2)))
-    if score and e["completed"] and left[1] is not None and right[1] is not None:
-        middle=f"{left[1]}  –  {right[1]}"
-    else: middle="VS"
-    d.text((x+w//2,cy-12),middle,anchor="mm",font=font(52 if hero else 34,True),fill="white")
-    names=f"{display_name(left[0])}  •  {display_name(right[0])}"
-    d.text((x+w//2,cy+38),names,anchor="mm",font=font(27 if hero else 23,True),fill=(245,245,248,255))
-    d.text((x+w//2,cy+76),fmt_date(e["date"]),anchor="mm",font=font(25 if hero else 21,True),fill=accent if hero else (215,220,228,255))
+    middle=(f"{left[1]}  –  {right[1]}" if score and e["completed"] and left[1] is not None and right[1] is not None else "VS")
+    d.text((x+w//2,cy-22),middle,anchor="mm",font=font(66 if hero else 50,True),fill="white")
+    d.text((x+w//2,cy+40),f"{display_name(left[0])}  •  {display_name(right[0])}",
+           anchor="mm",font=font(34 if hero else 29,True),fill=(248,248,250,255))
+    d.text((x+w//2,cy+88),fmt_date(e["date"]),anchor="mm",
+           font=font(30 if hero else 25,True),fill=accent if hero else (225,230,238,255))
 
-def standings_data(sport):
-    if sport=="soccer":
-        return [("1","Sweden","3","2","1","0","+3","7"),
-                ("2","Bosnia and Herzegovina","3","1","2","0","+2","5"),
-                ("3","Poland","3","1","1","1","+4","4"),
-                ("4","Romania","3","0","0","3","-9","0")]
-    return []
-
-def tv_standings(im,d,x,y,w,accent,competition_label):
+def simple_standings(im,d,x,y,w,accent,competition_label):
     rows=standings_data("soccer")
-    d.text((x,y),competition_label,font=font(25,True),fill=accent)
-    d.text((x+w,y),"P   W   D   L   GD  PTS",anchor="ra",font=font(21,True),fill=(230,235,242,255))
-    y+=45
+    d.text((x,y),competition_label,font=font(29,True),fill=accent)
+    d.text((x+w,y),"P    W    D    L    GD   PTS",anchor="ra",font=font(24,True),fill=(235,238,244,255))
+    y+=52
     for pos,name,p,w1,dr,l,gd,pts in rows:
         if "Bosnia" in name:
-            d.rounded_rectangle((x-8,y-5,x+w+5,y+35),radius=8,fill=(35,105,170,105))
-        icon=team_icon(name,"soccer",(42,28))
-        d.text((x,y+2),pos+".",font=font(21,True),fill="white")
-        if icon: im.alpha_composite(icon,(x+45,y))
-        d.text((x+100,y+2),display_name(name),font=font(20,True),fill="white")
-        d.text((x+w,y+2),f"{p}   {w1}   {dr}   {l}   {gd:>3}   {pts}",anchor="ra",font=font(20,True),fill="white")
-        y+=43
+            d.rounded_rectangle((x-8,y-5,x+w+5,y+42),radius=8,fill=(35,105,170,110))
+        icon=team_icon(name,"soccer",(48,32))
+        d.text((x,y+3),pos+".",font=font(24,True),fill="white")
+        if icon: im.alpha_composite(icon,(x+50,y))
+        d.text((x+112,y+3),display_name(name),font=font(23,True),fill="white")
+        d.text((x+w,y+3),f"{p}    {w1}    {dr}    {l}    {gd:>3}    {pts}",anchor="ra",font=font(23,True),fill="white")
+        y+=50
 
-def tv_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
-    # Purpose-built 10-foot UI. Compact enough to leave the lower screen free for Projectivy apps.
-    h=1000 if sport=="soccer" else 790
+def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
+    # Minimal 10-foot dashboard: header, last result, next event, standings only.
+    h=920 if sport=="soccer" else 650
     im=panel(im,(x,y,x+w,y+h),190)
     d=ImageDraw.Draw(im)
-    icon=team_icon("Toronto Raptors","nba",(100,100)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(115,78))
-    hx=x+48
-    if icon:
-        im.alpha_composite(icon,(hx,y+25)); hx+=icon.width+22
-    d.text((hx,y+38),title,font=font(48,True),fill=accent)
+    header_icon=team_icon("Toronto Raptors","nba",(112,112)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(132,88))
+    hx=x+58
+    if header_icon:
+        im.alpha_composite(header_icon,(hx,y+28)); hx+=header_icon.width+25
+    d.text((hx,y+45),title,font=font(54,True),fill=accent)
     if status_label:
-        d.text((x+w-48,y+93),status_label,anchor="ra",font=font(21,True),fill=accent)
-    d.line((x+48,y+132,x+w-48,y+132),fill=accent,width=4)
+        d.text((x+w-58,y+104),status_label,anchor="ra",font=font(23,True),fill=accent)
+    d.line((x+58,y+145,x+w-58,y+145),fill=accent,width=4)
 
-    d.text((x+48,y+155),"LAST RESULT",font=font(22,True),fill=(215,220,230,255))
-    draw_tv_match(im,d,x+50,y+185,w-100,last,sport,True,False,accent)
+    d.text((x+58,y+174),"LAST RESULT",font=font(27,True),fill=(220,225,235,255))
+    simple_match(im,d,x+65,y+210,w-130,last,sport,True,False,accent)
 
-    d.text((x+48,y+330),"NEXT MATCH" if sport=="soccer" else "NEXT GAME",font=font(35,True),fill=accent)
+    d.text((x+58,y+400),"NEXT MATCH" if sport=="soccer" else "NEXT GAME",font=font(43,True),fill=accent)
     first=nxt[0] if nxt else None
-    draw_tv_match(im,d,x+50,y+380,w-100,first,sport,False,True,accent)
-
-    d.text((x+48,y+555),"UPCOMING",font=font(22,True),fill=(215,220,230,255))
-    for i,event in enumerate(nxt[1:3]):
-        sy=y+590+i*125
-        draw_tv_match(im,d,x+50,sy,w-100,event,sport,False,False,accent)
-        if i==0:d.line((x+60,sy+108,x+w-60,sy+108),fill=(255,255,255,45),width=2)
+    simple_match(im,d,x+65,y+450,w-130,first,sport,False,True,accent)
 
     if sport=="soccer":
-        d.line((x+48,y+825,x+w-48,y+825),fill=accent,width=2)
-        tv_standings(im,d,x+48,y+850,w-96,accent,competition_label or "GROUP TABLE")
+        d.line((x+58,y+675,x+w-58,y+675),fill=accent,width=3)
+        simple_standings(im,d,x+58,y+705,w-116,accent,competition_label or "GROUP TABLE")
     return im
 
 
@@ -239,8 +225,8 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=tv_section(im,55,300,1680,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
-    im=tv_section(im,2105,300,1680,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
+    im=simple_section(im,70,260,1660,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
+    im=simple_section(im,2110,260,1660,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
