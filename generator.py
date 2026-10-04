@@ -181,10 +181,11 @@ def simple_standings(im,d,x,y,w,accent,competition_label):
     rows=standings_data("soccer")
     d.text((x,y),competition_label,font=font(39,True),fill=accent)
 
-    # Fixed numeric columns so headings and every row line up perfectly.
-    cols=[("W",w-330),("D",w-250),("L",w-170),("GD",w-85),("PTS",w)]
-    for label,cx in cols:
-        d.text((x+cx,y+2),label,anchor="ra",font=font(32,True),fill=(235,238,244,255))
+    # Absolute center-anchored columns. P is intentionally omitted.
+    col_x=[x+w-400,x+w-300,x+w-200,x+w-100,x+w]
+    labels=["W","D","L","GD","PTS"]
+    for label,cx in zip(labels,col_x):
+        d.text((cx,y+3),label,anchor="ma",font=font(32,True),fill=(235,238,244,255))
 
     y+=58
     for pos,name,p,w1,dr,l,gd,pts in rows:
@@ -195,8 +196,8 @@ def simple_standings(im,d,x,y,w,accent,competition_label):
         if icon: im.alpha_composite(icon,(x+52,y))
         d.text((x+132,y+4),display_name(name),font=font(31,True),fill="white")
         vals=[w1,dr,l,gd,pts]
-        for (_,cx),val in zip(cols,vals):
-            d.text((x+cx,y+4),str(val),anchor="ra",font=font(31,True),fill="white")
+        for cx,val in zip(col_x,vals):
+            d.text((cx,y+4),str(val),anchor="ma",font=font(31,True),fill="white")
         y+=58
 
 
