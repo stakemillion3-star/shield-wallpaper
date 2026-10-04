@@ -197,12 +197,17 @@ def draw_upcoming(im,d,x,y,w,e,sport,accent):
     left,right=e["teams"][0],e["teams"][1]
     left_cx=x+w*0.245
     right_cx=x+w*0.755
-    place_icon(im,left[0],sport,left_cx,y+65,(300,220))
-    place_icon(im,right[0],sport,right_cx,y+65,(300,220))
+    def upcoming_icon_size(name):
+        if sport=="soccer":
+            # Match the 220px visual height of the square NBA logos while keeping each flag's proportions.
+            return (440,220) if "Bosnia" in name else (352,220)
+        return (300,220)
+    place_icon(im,left[0],sport,left_cx,y+65,upcoming_icon_size(left[0]))
+    place_icon(im,right[0],sport,right_cx,y+65,upcoming_icon_size(right[0]))
     centered_text(d,"VS",cx,y+65,font(108,True),(255,255,255,255))
-    centered_text(d,display_name(left[0]),left_cx,y+225,font(54,True),(248,248,250,255))
-    centered_text(d,display_name(right[0]),right_cx,y+225,font(54,True),(248,248,250,255))
-    centered_text(d,fmt_date(e["date"]),cx,y+305,font(66,True),accent)
+    centered_text(d,display_name(left[0]),left_cx,y+218,font(54,True),(248,248,250,255))
+    centered_text(d,display_name(right[0]),right_cx,y+218,font(54,True),(248,248,250,255))
+    centered_text(d,fmt_date(e["date"]),cx,y+340,font(66,True),accent)
 
 
 def simple_standings(im,x,y,w,h,accent,competition_label):
