@@ -30,7 +30,8 @@ def team_icon(name,sport,size=(100,70)):
         ab=TEAM_ABBR.get(name)
         return remote_image(f"https://a.espncdn.com/i/teamlogos/nba/500/{ab}.png",size) if ab else None
     cc=COUNTRY_CODE.get(name)
-    return remote_image(f"https://flagcdn.com/w160/{cc}.png",size) if cc else None
+    # Download enough resolution for the upcoming flags to render much larger than result flags.
+    return remote_image(f"https://flagcdn.com/w640/{cc}.png",size) if cc else None
 
 def font(size,bold=False):
     paths=[
