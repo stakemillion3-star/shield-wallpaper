@@ -141,46 +141,44 @@ def matchup(e,with_score=False):
 
 def draw_match(im,d,x,y,w,e,sport,score=False,big=False):
     if not e or len(e["teams"])<2:
-        d.text((x,y),"—",font=font(34,True),fill="white"); return
+        d.text((x+w//2,y+22),"—",anchor="mm",font=font(30,True),fill="white"); return
     left,right=e["teams"][0],e["teams"][1]
-    sz=(94,66) if big else (68,48)
+    sz=(86,58) if big else (58,40)
     li=team_icon(left[0],sport,sz); ri=team_icon(right[0],sport,sz)
-    cy=y+8
-    if li: im.alpha_composite(li,(x,cy))
-    if ri: im.alpha_composite(ri,(x+w-ri.width,cy))
-    if score and e["completed"] and left[1] is not None and right[1] is not None:
-        mid=f'{left[1]}  –  {right[1]}'
-    else: mid="VS"
-    d.text((x+w//2,y+4),mid,anchor="ma",font=font(38 if big else 28,True),fill="white")
-    d.text((x+w//2,y+52),f'{left[0]}  •  {right[0]}',anchor="ma",font=font(22 if big else 19,True),fill=(235,235,240,255))
+    if li: im.alpha_composite(li,(x,y+2))
+    if ri: im.alpha_composite(ri,(x+w-ri.width,y+2))
+    mid=(f'{left[1]}  –  {right[1]}' if score and e["completed"] and left[1] is not None and right[1] is not None else "VS")
+    d.text((x+w//2,y+15),mid,anchor="mm",font=font(34 if big else 25,True),fill="white")
+    d.text((x+w//2,y+48),f'{left[0]}  •  {right[0]}',anchor="mm",font=font(19 if big else 17,True),fill=(235,235,240,255))
 
 def section(im,x,y,w,title,last,nxt,accent,sport):
-    im=panel(im,(x,y,x+w,y+900),175)
+    im=panel(im,(x,y,x+w,y+930),175)
     d=ImageDraw.Draw(im)
-    # Header icon
-    hi=team_icon("Toronto Raptors","nba",(95,95)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(105,72))
+    hi=team_icon("Toronto Raptors","nba",(88,88)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(100,68))
     hx=x+55
     if hi:
-        im.alpha_composite(hi,(hx,y+35)); hx+=hi.width+28
-    d.text((hx,y+42),title,font=font(48,True),fill=accent)
-    yy=y+125
-    d.line((x+45,yy,x+w-45,yy),fill=accent,width=3); yy+=22
-    d.text((x+55,yy),"LAST RESULT",font=font(24,True),fill=(210,215,225,255)); yy+=38
-    draw_match(im,d,x+60,yy,w-120,last,sport,True,True); yy+=105
-    if last:d.text((x+w//2,yy),fmt_date(last["date"]),anchor="ma",font=font(22),fill=(190,195,205,255))
-    yy+=58
-    d.text((x+55,yy),"NEXT",font=font(24,True),fill=(210,215,225,255)); yy+=38
+        im.alpha_composite(hi,(hx,y+34)); hx+=hi.width+25
+    d.text((hx,y+42),title,font=font(46,True),fill=accent)
+    d.line((x+45,y+125,x+w-45,y+125),fill=accent,width=3)
+
+    # Fixed vertical slots; no cumulative yy math, so rows cannot collide.
+    d.text((x+55,y+150),"LAST RESULT",font=font(23,True),fill=(210,215,225,255))
+    draw_match(im,d,x+60,y+190,w-120,last,sport,True,True)
+    if last:d.text((x+w//2,y+265),fmt_date(last["date"]),anchor="mm",font=font(20),fill=(190,195,205,255))
+
+    d.text((x+55,y+325),"NEXT",font=font(23,True),fill=(210,215,225,255))
     first=nxt[0] if nxt else None
-    draw_match(im,d,x+60,yy,w-120,first,sport,False,True); yy+=105
-    if first:d.text((x+w//2,yy),fmt_date(first["date"]),anchor="ma",font=font(24,True),fill=accent)
-    yy+=62
-    d.text((x+55,yy),"UPCOMING",font=font(24,True),fill=(210,215,225,255)); yy+=38
-    for e in nxt[1:3]:
-        draw_match(im,d,x+60,yy,w-120,e,sport); yy+=62
-        d.text((x+w//2,yy),fmt_date(e["date"]),anchor="ma",font=font(19),fill=(190,195,205,255)); yy+=46
+    draw_match(im,d,x+60,y+365,w-120,first,sport,False,True)
+    if first:d.text((x+w//2,y+440),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
+
+    d.text((x+55,y+505),"UPCOMING",font=font(23,True),fill=(210,215,225,255))
+    slots=[545,700]
+    for idx,event in enumerate(nxt[1:3]):
+        sy=y+slots[idx]
+        draw_match(im,d,x+60,sy,w-120,event,sport,False,False)
+        d.text((x+w//2,sy+78),fmt_date(event["date"]),anchor="mm",font=font(18),fill=(190,195,205,255))
+        if idx==0:d.line((x+70,sy+112,x+w-70,sy+112),fill=(255,255,255,35),width=2)
     return im
-
-
 
 def main():
     errors=[]
