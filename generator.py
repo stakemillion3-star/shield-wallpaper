@@ -284,7 +284,7 @@ def main():
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
     im.convert("RGB").save("wallpaper.jpg","JPEG",quality=96,optimize=True,progressive=True)
 
-    # Overflight wallpaper provider feed. The daily query value gives Projectivy
+    # Overflight wallpaper provider feed. Daily query values tell Projectivy
     # a new image URI after each scheduled render, avoiding stale image caches.
     version=datetime.now(TZ).strftime("%Y%m%d")
     feed=[{
