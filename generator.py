@@ -280,9 +280,10 @@ def dock_backdrop(im):
 
     # A very light black overlay counteracts the brighter look from averaging
     # the background details while it is blurred.
-    dark=Image.new("RGBA",region.size,(0,0,0,22))
     softened=Image.composite(blurred,region,mask)
+    dark=Image.new("RGBA",region.size,(0,0,0,22))
     shaded=Image.alpha_composite(softened,dark)
+    shaded=Image.composite(shaded,region,mask)
     im.paste(shaded,(0,top))
     return im
 
