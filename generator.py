@@ -263,22 +263,17 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
 
 
 def dock_backdrop(im):
-    # Gradually soften and darken the existing background behind the launcher icons.
+    # Gradually blur the empty wallpaper area below the standings, with no dock shape or tint.
     top=1730
     region=im.crop((0,top,W,H)).convert("RGBA")
-    blurred=region.filter(ImageFilter.GaussianBlur(18))
-    softened=Image.blend(region,blurred,0.30)
+    blurred=region.filter(ImageFilter.GaussianBlur(22))
     fade=Image.new("L",(1,H-top))
-    shade_alpha=Image.new("L",(1,H-top))
     for yy in range(H-top):
         t=yy/max(1,H-top-1)
         fade.putpixel((0,yy),int(255*(t**1.4)))
-        shade_alpha.putpixel((0,yy),int(82*(t**1.3)))
     fade=fade.resize(region.size,Image.Resampling.BILINEAR)
-    softened=Image.composite(softened,region,fade)
-    shade=Image.new("RGBA",region.size,(0,0,0,0))
-    shade.putalpha(shade_alpha.resize(region.size,Image.Resampling.BILINEAR))
-    im.paste(Image.alpha_composite(softened,shade),(0,top))
+    softened=Image.composite(blurred,region,fade)
+    im.paste(softened,(0,top))
     return im
 
 def main():
