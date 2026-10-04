@@ -140,6 +140,21 @@ def panel(base,box,alpha=150):
     d.rounded_rectangle(box,radius=36,fill=(4,10,20,alpha),outline=(255,255,255,45),width=2)
     return Image.alpha_composite(base.convert("RGBA"),ov)
 
+def app_dock(base):
+    # Fit the dock around the six Shield app tiles in the supplied 2048x1152
+    # home-screen capture, scaled to this 3840x2160 wallpaper.
+    ov=Image.new("RGBA",base.size,(0,0,0,0))
+    d=ImageDraw.Draw(ov)
+    d.rounded_rectangle(
+        (150,1780,3690,2135),
+        radius=86,
+        fill=(4,10,20,194),
+        outline=(255,255,255,45),
+        width=2
+    )
+    return Image.alpha_composite(base.convert("RGBA"),ov)
+
+
 def fmt_date(dt): return dt.strftime("%a %b %d • %-I:%M %p")
 
 def matchup(e,with_score=False):
@@ -279,6 +294,7 @@ def main():
     im=simple_section(im,20,450,1890,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
     im=simple_section(im,1930,450,1890,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
     im=simple_standings(im,45,1310,1840,430,(80,170,255,255),bcomp or "GROUP TABLE")
+    im=app_dock(im)
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
