@@ -139,6 +139,9 @@ def matchup(e,with_score=False):
         return f'{a[0]}  {a[1]}  –  {b[1]}  {b[0]}'
     return f'{a[0]}  vs  {b[0]}'
 
+def display_name(name):
+    return "Bosna I Hercegovina" if name in ("Bosnia and Herzegovina","Bosnia & Herzegovina","Bosnia-Herzegovina","Bosnia") else name
+
 def draw_match(im,d,x,y,w,e,sport,score=False,big=False):
     if not e or len(e["teams"])<2:
         d.text((x+w//2,y+22),"—",anchor="mm",font=font(30,True),fill="white"); return
@@ -149,72 +152,66 @@ def draw_match(im,d,x,y,w,e,sport,score=False,big=False):
     if ri: im.alpha_composite(ri,(x+w-ri.width,y+2))
     mid=(f'{left[1]}  –  {right[1]}' if score and e["completed"] and left[1] is not None and right[1] is not None else "VS")
     d.text((x+w//2,y+15),mid,anchor="mm",font=font(34 if big else 25,True),fill="white")
-    d.text((x+w//2,y+48),f'{left[0]}  •  {right[0]}',anchor="mm",font=font(19 if big else 17,True),fill=(235,235,240,255))
+    d.text((x+w//2,y+48),f'{display_name(left[0])}  •  {display_name(right[0])}',anchor="mm",font=font(19 if big else 17,True),fill=(235,235,240,255))
 
 def standings_data(sport):
     if sport=="soccer":
-        # UEFA Group B4 after Matchday 3, Oct 2, 2026.
         return [("1","Sweden","3","2","1","0","+3","7"),
                 ("2","Bosnia and Herzegovina","3","1","2","0","+2","5"),
                 ("3","Poland","3","1","1","1","+4","4"),
                 ("4","Romania","3","0","0","3","-9","0")]
-    # Preseason: standings position is intentionally omitted; show current preseason record only.
-    return [("","Toronto Raptors","1","0","0","1","-24","0-1")]
+    return []
 
-def draw_standings(im,d,x,y,w,sport,accent):
-    rows=standings_data(sport)
-    title="GROUP B4 STANDINGS" if sport=="soccer" else "PRESEASON RECORD"
-    d.text((x,y),title,font=font(21,True),fill=(210,215,225,255))
+def draw_standings(im,d,x,y,w,accent):
+    rows=standings_data("soccer")
+    d.text((x,y),"GROUP TABLE",font=font(22,True),fill=accent)
+    d.text((x+w,y),"P     W     D     L     GD    PTS",anchor="ra",font=font(17,True),fill=(225,230,238,255))
     y+=38
-    if sport=="soccer":
-        d.text((x,y),"#   TEAM                         P   W   D   L    GD   PTS",font=font(16,True),fill=(175,185,200,255)); y+=30
-        for pos,name,p,w1,dr,l,gd,pts in rows:
-            if "Bosnia" in name:
-                d.rounded_rectangle((x-8,y-4,x+w,y+28),radius=8,fill=(35,110,180,95))
-            icon=team_icon(name,"soccer",(34,23))
-            if icon: im.alpha_composite(icon,(x+28,y))
-            d.text((x,y),pos,font=font(16,True),fill="white")
-            d.text((x+72,y),name,font=font(16,True),fill="white")
-            d.text((x+w-300,y),f"{p:>2}   {w1:>2}   {dr:>2}   {l:>2}   {gd:>3}   {pts:>2}",font=font(16,True),fill="white")
-            y+=34
-    else:
-        # NBA does not use preseason conference standings here; record is clearer and non-misleading.
-        d.text((x,y),"Toronto Raptors",font=font(19,True),fill="white")
-        d.text((x+w,y),"0–1   •   Point Diff −24",anchor="ra",font=font(19,True),fill=accent)
+    for pos,name,p,w1,dr,l,gd,pts in rows:
+        if "Bosnia" in name:
+            d.rounded_rectangle((x-8,y-4,x+w+5,y+30),radius=7,fill=(35,105,170,90))
+        icon=team_icon(name,"soccer",(38,25))
+        d.text((x,y+2),pos+".",font=font(17,True),fill="white")
+        if icon: im.alpha_composite(icon,(x+48,y))
+        d.text((x+100,y+2),display_name(name),font=font(17,True),fill="white")
+        d.text((x+w,y+2),f"{p:>2}     {w1:>2}     {dr:>2}     {l:>2}     {gd:>3}     {pts:>2}",anchor="ra",font=font(17,True),fill="white")
+        y+=38
 
 def section(im,x,y,w,title,last,nxt,accent,sport):
-    # Extend downward only; top stays fixed.
-    im=panel(im,(x,y,x+w,y+1230),175)
+    # Reference-inspired compact/tall panel.
+    panel_h=1060 if sport=="soccer" else 900
+    im=panel(im,(x,y,x+w,y+panel_h),175)
     d=ImageDraw.Draw(im)
-    hi=team_icon("Toronto Raptors","nba",(88,88)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(100,68))
+    hi=team_icon("Toronto Raptors","nba",(82,82)) if sport=="nba" else team_icon("Bosnia and Herzegovina","soccer",(94,64))
     hx=x+55
     if hi:
-        im.alpha_composite(hi,(hx,y+28)); hx+=hi.width+25
-    d.text((hx,y+28),title,font=font(46,True),fill=accent)
-    subtitle="NBA • PRESEASON" if sport=="nba" else "UEFA NATIONS LEAGUE"
-    d.text((hx,y+82),subtitle,font=font(18,True),fill=(195,200,210,255))
-    # Divider deliberately below logo + title + subtitle.
-    d.line((x+55,y+145,x+w-55,y+145),fill=accent,width=3)
+        im.alpha_composite(hi,(hx,y+25)); hx+=hi.width+24
+    d.text((hx,y+31),title,font=font(43,True),fill=accent)
+    d.line((x+55,y+118,x+w-55,y+118),fill=accent,width=3)
 
-    d.text((x+55,y+170),"LAST RESULT",font=font(23,True),fill=(210,215,225,255))
-    draw_match(im,d,x+60,y+210,w-120,last,sport,True,True)
-    if last:d.text((x+w//2,y+285),fmt_date(last["date"]),anchor="mm",font=font(20),fill=(190,195,205,255))
+    d.text((x+55,y+142),"LAST RESULT",font=font(21,True),fill=(215,220,230,255))
+    draw_match(im,d,x+60,y+178,w-120,last,sport,True,True)
+    if last:d.text((x+w//2,y+252),fmt_date(last["date"]),anchor="mm",font=font(18),fill=(195,200,210,255))
+    if sport=="nba": d.text((x+w-60,y+145),"PRESEASON",anchor="ra",font=font(18,True),fill=accent)
 
-    d.text((x+55,y+345),"NEXT",font=font(23,True),fill=(210,215,225,255))
+    d.text((x+55,y+300),"NEXT",font=font(21,True),fill=(215,220,230,255))
     first=nxt[0] if nxt else None
-    draw_match(im,d,x+60,y+385,w-120,first,sport,False,True)
-    if first:d.text((x+w//2,y+460),fmt_date(first["date"]),anchor="mm",font=font(22,True),fill=accent)
+    draw_match(im,d,x+60,y+336,w-120,first,sport,False,True)
+    if first:d.text((x+w//2,y+410),fmt_date(first["date"]),anchor="mm",font=font(20,True),fill=accent)
+    if sport=="nba": d.text((x+w-60,y+303),"PRESEASON",anchor="ra",font=font(17,True),fill=accent)
 
-    d.text((x+55,y+525),"UPCOMING",font=font(23,True),fill=(210,215,225,255))
-    slots=[565,720]
+    d.text((x+55,y+460),"UPCOMING",font=font(21,True),fill=(215,220,230,255))
+    slots=[500,625]
     for idx,event in enumerate(nxt[1:3]):
         sy=y+slots[idx]
         draw_match(im,d,x+60,sy,w-120,event,sport,False,False)
-        d.text((x+w//2,sy+78),fmt_date(event["date"]),anchor="mm",font=font(18),fill=(190,195,205,255))
-        if idx==0:d.line((x+70,sy+112,x+w-70,sy+112),fill=(255,255,255,35),width=2)
+        d.text((x+w//2,sy+68),fmt_date(event["date"]),anchor="mm",font=font(17),fill=(195,200,210,255))
+        if sport=="nba": d.text((x+w-60,sy+8),"PRESEASON",anchor="ra",font=font(15,True),fill=accent)
+        if idx==0:d.line((x+70,sy+98,x+w-70,sy+98),fill=(255,255,255,40),width=2)
 
-    d.line((x+55,y+885,x+w-55,y+885),fill=(255,255,255,55),width=2)
-    draw_standings(im,d,x+55,y+910,w-110,sport,accent)
+    if sport=="soccer":
+        d.line((x+55,y+755,x+w-55,y+755),fill=accent,width=2)
+        draw_standings(im,d,x+55,y+780,w-110,accent)
     return im
 
 def main():
@@ -234,7 +231,7 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=section(im,170,660,1250,"BOSNIA & HERZEGOVINA",bl,bn,(80,170,255,255),"soccer")
+    im=section(im,170,660,1250,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer")
     im=im=section(im,2420,660,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba")
     if errors:
         d=ImageDraw.Draw(im)
