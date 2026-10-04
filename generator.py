@@ -263,30 +263,25 @@ def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,compet
 
 
 def dock_backdrop(im):
-    # Full-width blurred band with equal 25 px clear margins above and below.
-    # The 20 px edge fades keep the blend seamless without drawing a dock shape.
+    # Lightly soften the wallpaper across the full-width band, keeping the
+    # background's original colour and detail so it never reads as a dock.
     top=1765
     bottom=2135
     region=im.crop((0,top,W,bottom)).convert("RGBA")
-    blurred=region.filter(ImageFilter.GaussianBlur(28))
+    blurred=region.filter(ImageFilter.GaussianBlur(12))
 
     mask=Image.new("L",(1,bottom-top))
     fade=20
+    max_blur=0.45
     for yy in range(bottom-top):
         edge=min(1.0,(yy+1)/fade,(bottom-top-yy)/fade)
-        strength=max(0.0,min(1.0,edge))
+        strength=max(0.0,min(1.0,edge))*max_blur
         mask.putpixel((0,yy),int(255*strength))
     mask=mask.resize(region.size,Image.Resampling.BILINEAR)
 
-    # A very light black overlay counteracts the brighter look from averaging
-    # the background details while it is blurred.
     softened=Image.composite(blurred,region,mask)
-    dark=Image.new("RGBA",region.size,(0,0,0,22))
-    shaded=Image.alpha_composite(softened,dark)
-    shaded=Image.composite(shaded,region,mask)
-    im.paste(shaded,(0,top))
+    im.paste(softened,(0,top))
     return im
-
 def main():
     errors=[]
     try:
