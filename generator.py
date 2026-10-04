@@ -156,31 +156,37 @@ def simple_match(im,d,x,y,w,e,sport,score=False,hero=False,accent=(255,255,255,2
     if not e or len(e["teams"])<2:
         d.text((x+w//2,y+60),"—",anchor="mm",font=font(52,True),fill="white"); return
     left,right=e["teams"][0],e["teams"][1]
-    # Exact shared outer edges on every row; hero logos grow inward only.
     iw,ih=((270,175) if hero else (190,125))
     li=team_icon(left[0],sport,(iw,ih)); ri=team_icon(right[0],sport,(iw,ih))
     cy=y+(82 if hero else 62)
     logo_inset=28
-    if li: im.alpha_composite(li,(x+logo_inset,int(cy-li.height/2)))
-    if ri: im.alpha_composite(ri,(x+w-logo_inset-ri.width,int(cy-ri.height/2)))
+    lx=x+logo_inset
+    rx=x+w-logo_inset
+    if li: im.alpha_composite(li,(lx,int(cy-li.height/2)))
+    if ri: im.alpha_composite(ri,(rx-ri.width,int(cy-ri.height/2)))
+
     center_x=x+w//2
+    # Team names live directly beneath their own logos.
+    name_y=cy+(112 if hero else 88)
+    left_center=lx+(li.width/2 if li else iw/2)
+    right_center=rx-(ri.width/2 if ri else iw/2)
+    d.text((left_center,name_y),display_name(left[0]),anchor="mm",
+           font=font(34 if hero else 31,True),fill=(248,248,250,255))
+    d.text((right_center,name_y),display_name(right[0]),anchor="mm",
+           font=font(34 if hero else 31,True),fill=(248,248,250,255))
+
     if score and left[1] is not None and right[1] is not None:
-        # Result: score centered, team names directly underneath with no separator bullet.
-        d.text((center_x,cy-22),f"{left[1]}  –  {right[1]}",anchor="mm",
-               font=font(70,True),fill="white")
-        name_y=cy+40
-        left_name_x=x+w*0.39
-        right_name_x=x+w*0.61
-        d.text((left_name_x,name_y),display_name(left[0]),anchor="mm",
-               font=font(40,True),fill=(248,248,250,255))
-        d.text((right_name_x,name_y),display_name(right[0]),anchor="mm",
-               font=font(40,True),fill=(248,248,250,255))
+        # Large score isolated in the exact center.
+        d.text((center_x,cy),f"{left[1]}  –  {right[1]}",anchor="mm",
+               font=font(82,True),fill="white")
     else:
-        # Next event: one centered matchup line, TEAM A VS TEAM B.
-        d.text((center_x,cy+12),f"{display_name(left[0])}  VS  {display_name(right[0])}",
-               anchor="mm",font=font(47 if hero else 40,True),fill=(248,248,250,255))
-    d.text((center_x,cy+88),fmt_date(e["date"]),anchor="mm",
-           font=font(40 if hero else 35,True),fill=accent if hero else (225,230,238,255))
+        # Next event keeps a simple central VS between the two logo/name columns.
+        d.text((center_x,cy), "VS",anchor="mm",font=font(70,True),fill="white")
+
+    # Bigger date/time for couch readability.
+    d.text((center_x,name_y+58),fmt_date(e["date"]),anchor="mm",
+           font=font(46 if hero else 41,True),fill=accent if hero else (235,238,245,255))
+
 
 def standings_data(sport):
     if sport=="soccer":
