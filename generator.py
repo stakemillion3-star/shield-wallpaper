@@ -242,11 +242,14 @@ def section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_l
     return im
 
 
-def scaled_section(base,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None,scale=1.22):
+def scaled_section(base,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None,scale=1.38):
+    # Supersample the entire approved panel, then composite it at its larger native footprint.
+    # section() itself remains the approved geometry; we temporarily render at 1/scale canvas
+    # coordinates and scale the completed object uniformly.
     panel_h=1060 if sport=="soccer" else 780
     local=Image.new("RGBA",(w,panel_h),(0,0,0,0))
     local=section(local,0,0,w,title,last,nxt,accent,sport,status_label,competition_label)
-    local=local.resize((int(w*scale),int(panel_h*scale)),Image.Resampling.LANCZOS)
+    local=local.resize((round(w*scale),round(panel_h*scale)),Image.Resampling.LANCZOS)
     base.alpha_composite(local,(x,y))
     return base
 
@@ -264,8 +267,8 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
     im=Image.alpha_composite(im,shade)
-    im=scaled_section(im,95,710,1250,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp,scale=1.22)
-    im=scaled_section(im,2220,710,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase,scale=1.22)
+    im=scaled_section(im,55,650,1250,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp,scale=1.38)
+    im=scaled_section(im,2055,650,1250,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase,scale=1.22)
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
