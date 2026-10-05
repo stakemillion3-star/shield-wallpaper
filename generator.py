@@ -175,7 +175,8 @@ def standings_data(sport):
             "draws":("ties","draws","draw"),
             "losses":("losses","loss"),
             "gd":("pointdifferential","goaldifference","goaldiff","differential"),
-            "points":("points","leaguepoints","totalpoints")
+            "points":("points","leaguepoints","totalpoints"),
+            "goalsfor":("pointsfor","goalsfor","goalsscored")
         }
         for entry in entries:
             team=entry.get("team") or {}
@@ -193,18 +194,21 @@ def standings_data(sport):
                         return str(stat.get("displayValue",stat.get("value","")))
                 return ""
             played,wins,draws,losses,gd,points=(value_for(k) for k in ("gamesplayed","wins","draws","losses","gd","points"))
+            goals_for=value_for("goalsfor") or "0"
             if not all((name,played,wins,draws,losses,gd,points)):
                 raise ValueError("ESPN standings row is missing a required table value")
-            rows.append((str(len(rows)+1),name,played,wins,draws,losses,gd,points))
+            number=lambda value:int(str(value).replace("+","").replace(",",""))
+            rows.append(((number(points),number(gd),number(goals_for)),
+                         (name,played,wins,draws,losses,gd,points)))
         required={"Sweden","Bosnia and Herzegovina","Poland","Romania"}
-        if len(rows)!=4 or {r[1] for r in rows}!=required:
+        if len(rows)!=4 or {r[1][0] for r in rows}!=required:
             raise ValueError("ESPN did not return the four expected Group B4 teams")
+        rows.sort(key=lambda row:row[0],reverse=True)
         print("Loaded live UEFA Nations League Group B4 standings from ESPN.")
-        return rows
+        return [(str(i),*row[1]) for i,row in enumerate(rows,1)]
     except Exception as exc:
         print(f"ESPN Group B4 standings unavailable; using the last known table: {exc}")
         return fallback
-
 
 def centered_text(d,text,cx,cy,ft,fill):
     d.text((cx,cy),text,anchor="mm",font=ft,fill=fill)
