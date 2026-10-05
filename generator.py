@@ -111,7 +111,7 @@ def nations_events():
                     key=(parsed["date"].isoformat(),parsed["name"])
                     events[key]=parsed
         NATIONS_EVENTS_CACHE=sorted(events.values(),key=lambda event:event["date"])
-        print(f"Loaded {len(NATIONS_EVENTS_CACHE)} Nations League scoreboard events for Group B4 matchdays.")
+        print(f"Loaded {len(NATIONS_EVENTS_CACHE)} Nations League scoreboard events across the B4 matchdays.")
     return NATIONS_EVENTS_CACHE
 
 def bosnia():
@@ -125,7 +125,7 @@ def bosnia():
         team_events=sorted((event for event in events if is_bosnia(event)),key=lambda e:e["date"])
         now=datetime.now(TZ)
         past=[event for event in team_events if event["completed"] and len(event["teams"])>=2]
-        future=[event for event in team_events if not event["completed"] and event["date"]>=now and len(event["teams"])>=2]
+        future=[event for event in team_events if not event["completed"] and (event["date"]>=now or event["date"].date()==now.date()) and len(event["teams"])>=2]
         if past or future:
             print(f"Using ESPN scoreboard for Bosnia: {len(past)} completed and {len(future)} upcoming fixtures.")
             return (past[-1] if past else None),future[:3],label
@@ -148,7 +148,7 @@ def bosnia():
                    "teams":[(a,sa,"home"),(b,sb,"away")],"name":f"{a} vs {b}"})
     now=datetime.now(TZ)
     past=[event for event in ev if event["completed"] and event["date"]<=now]
-    future=[event for event in ev if not event["completed"] and event["date"]>=now]
+    future=[event for event in ev if not event["completed"] and (event["date"]>=now or event["date"].date()==now.date())]
     return (past[-1] if past else None),future[:3],label
 
 def background():
