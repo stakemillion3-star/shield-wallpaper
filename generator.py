@@ -501,7 +501,7 @@ def draw_centered_panel(im,events,show_standings,competition_label):
     # to retain the calm composition and open background of the final copy.
     card_w=2500
     card_h=740
-    standings_h=520 if show_standings else 0
+    standings_h=450 if show_standings else 0
     gap=22 if show_standings else 0
     x=(W-card_w)//2
     group_h=card_h+gap+standings_h
