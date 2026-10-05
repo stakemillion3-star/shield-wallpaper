@@ -551,10 +551,15 @@ def main():
         nba_events=[]
         errors.append("Raptors: "+str(exc))
     events=soccer_events+nba_events
-    # Keep the wallpaper focused on the nearest calendar day with an event.
+    # Prefer today's events; when there are none, show tomorrow's before
+    # falling back to yesterday's final result.
     if events:
-        nearest_day=min(event["day_offset"] for event in events)
-        events=[event for event in events if event["day_offset"]==nearest_day]
+        preferred_day=next(
+            (offset for offset in (0,1,-1)
+             if any(event["day_offset"]==offset for event in events)),
+            events[0]["day_offset"]
+        )
+        events=[event for event in events if event["day_offset"]==preferred_day]
     show_standings=any(
         event["sport"]=="soccer" and event["day_offset"]==0
         for event in events
