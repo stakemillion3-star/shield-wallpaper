@@ -585,7 +585,10 @@ def regular_nba_event_stack(events):
     if active_today:
         return [active_today[0]]+([final_yesterday[-1]] if final_yesterday else [])
     if final_today:
-        return [final_today[-1]]+([next_tomorrow[0]] if next_tomorrow else [])
+        # Keep tomorrow hidden until the calendar rolls over. At midnight the
+        # next fixture becomes TODAY and yesterday's completed game moves into
+        # the compact LAST RESULT card below it.
+        return [final_today[-1]]
     if next_tomorrow:
         return [next_tomorrow[0]]+([final_yesterday[-1]] if final_yesterday else [])
     if final_yesterday:
