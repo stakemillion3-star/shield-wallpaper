@@ -331,9 +331,9 @@ def nba_standings_data():
         row["pct"]=f"{row['pct']:.3f}"[1:] if row["pct"]<1 else f"{row['pct']:.3f}"
         gb=((leader["wins"]-row["wins"])+(row["losses"]-leader["losses"]))/2
         row["gb"]="—" if gb==0 else f"{gb:.1f}"
-    leaders=rows[:4]
-    if toronto not in leaders:
-        leaders.append(toronto)
+    toronto_index=rows.index(toronto)
+    start=max(0,min(toronto_index-3,len(rows)-4))
+    leaders=rows[start:start+4]
     NBA_STANDINGS_CACHE=leaders
     print("ESPN preseason Eastern table:",[(r["rank"],r["name"],r["wins"],r["losses"],r["pct"],r["gb"]) for r in leaders])
     return leaders
@@ -565,13 +565,12 @@ def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
     im=panel(im,(x,y,x+w,y+h),194); draw=ImageDraw.Draw(im)
     if sport=="nba":
         rows=standings_data("nba")
-        centered_text(draw,competition_label,x+w/2,y+48,font(37,True),(255,88,98,255))
         col_x=[x+w-510,x+w-390,x+w-260,x+w-120]
         for heading,cx in zip(["W","L","PCT","GB"],col_x):
-            centered_text(draw,heading,cx,y+108,font(31,True),(235,238,244,255))
-        slot_h=max(58,(h-150)//max(1,len(rows)))
+            centered_text(draw,heading,cx,y+58,font(31,True),(235,238,244,255))
+        slot_h=max(58,(h-100)//max(1,len(rows)))
         row_h=58
-        row_start=y+139
+        row_start=y+86
         for i,row in enumerate(rows):
             ry=row_start+i*slot_h+(slot_h-row_h)//2
             if row["abbr"]=="TOR" or "raptors" in row["name"].lower():
@@ -586,12 +585,11 @@ def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
         return im
     rows=standings_data("soccer")
     table_w=min(w-150,2320); tx=x+(w-table_w)//2
-    centered_text(draw,competition_label,x+w/2,y+42,font(35,True),(80,170,255,255))
     col_x=[tx+table_w-575,tx+table_w-455,tx+table_w-335,tx+table_w-205,tx+table_w-65]
     for heading,cx in zip(["W","D","L","GD","PTS"],col_x):
-        centered_text(draw,heading,cx,y+103,font(37,True),(235,238,244,255))
+        centered_text(draw,heading,cx,y+58,font(37,True),(235,238,244,255))
     for i,(position,name,played,wins,draws,losses,gd,points) in enumerate(rows):
-        ry=y+145+i*77
+        ry=y+97+i*77
         if "Bosnia" in name:
             draw.rounded_rectangle((tx+8,ry-2,tx+table_w-8,ry+71),radius=14,fill=(35,105,170,165))
         centered_text(draw,position+".",tx+44,ry+38,font(40,True),(255,255,255,255))
