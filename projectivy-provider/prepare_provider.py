@@ -2,14 +2,18 @@ from pathlib import Path
 import sys
 
 template = Path(sys.argv[1])
-service_target = template / "sample/src/main/java/tv/projectivy/plugin/wallpaperprovider/sample/WallpaperProviderService.kt"
+source_dir = Path(__file__).parent
+java_dir = template / "sample/src/main/java/tv/projectivy/plugin/wallpaperprovider/sample"
+service_target = java_dir / "WallpaperProviderService.kt"
+settings_target = java_dir / "SettingsFragment.kt"
 manifest = template / "sample/src/main/AndroidManifest.xml"
 strings = template / "sample/src/main/res/values/strings.xml"
 
-service_target.write_text(
-    (Path(__file__).parent / "WallpaperProviderService.kt").read_text(encoding="utf-8"),
-    encoding="utf-8",
-)
+for target, source in (
+    (service_target, source_dir / "WallpaperProviderService.kt"),
+    (settings_target, source_dir / "SettingsFragment.kt"),
+):
+    target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
 
 manifest_text = manifest.read_text(encoding="utf-8")
 old_cache = 'android:value="@integer/items_cache_duration_millis"'
@@ -27,6 +31,9 @@ strings_text = strings_text.replace(
 ).replace(
     "<string name=\"plugin_uuid\">CHANGE_ME</string>",
     "<string name=\"plugin_uuid\">72617f9c-586e-4d40-9250-dc909795a5e9</string>",
+).replace(
+    "<string name=\"plugin_description\">Plugin description</string>",
+    "<string name=\"plugin_description\">Live Bosnia and Raptors wallpaper from your GitHub feed</string>",
 )
 if "CHANGE_ME" in strings_text:
     raise SystemExit("Plugin UUID replacement failed.")
