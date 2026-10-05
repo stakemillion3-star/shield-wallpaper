@@ -211,6 +211,20 @@ def matchup(e,with_score=False):
 def display_name(name):
     return "Bosna I Hercegovina" if name in ("Bosnia and Herzegovina","Bosnia & Herzegovina","Bosnia-Herzegovina","Bosnia") else name
 
+
+def nba_display_teams(event):
+    teams=list(event.get("teams") or [])[:2]
+    if event.get("sport")!="nba" or len(teams)<2:
+        return teams[0],teams[1],"VS"
+    toronto_index=next((i for i,team in enumerate(teams)
+                        if "toronto raptors" in team[0].lower()),None)
+    if toronto_index is None:
+        return teams[0],teams[1],"VS"
+    raptors_away=str(teams[toronto_index][2] or "").lower()=="away"
+    if toronto_index==1:
+        teams=[teams[1],teams[0]]
+    return teams[0],teams[1],"@" if raptors_away else "VS"
+
 def group_standings_from_results():
     # Rebuild Group B4 from completed matches in the same ESPN feed used for
     # Bosnia's last result and next match.
@@ -634,9 +648,14 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     left,right=event["teams"][0],event["teams"][1]
     phase=event.get("phase","NBA")
     league="NATIONS LEAGUE" if soccer else ("PRESEASON" if phase=="PRESEASON" else "NBA")
-    heading=league if soccer or league=="PRESEASON" else league+"  •  "+event["kind"]
+    heading=league
     centered_text(draw,heading,x+w/2,y+58,font(54,True),accent)
 
+    if soccer:
+        left,right=event["teams"][0],event["teams"][1]
+        matchup_mark="VS"
+    else:
+        left,right,matchup_mark=nba_display_teams(event)
     left_cx=x+w*0.245
     right_cx=x+w*0.755
     center_x=x+w/2
@@ -648,7 +667,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     vs_x=center_x
     if left_icon and right_icon:
         vs_x=((left_cx+left_icon.width/2)+(right_cx-right_icon.width/2))/2
-    centered_text(draw,"VS",vs_x,icon_y,font(105,True),(255,255,255,255))
+    centered_text(draw,matchup_mark,vs_x,icon_y,font(105,True),(255,255,255,255))
 
     left_name=display_name(left[0]).upper()
     right_name=display_name(right[0]).upper()
@@ -736,17 +755,24 @@ def draw_centered_panel(im,events,show_standings,competition_label):
         draw=ImageDraw.Draw(im)
         event=events[1]
         accent=(80,170,255,255) if event["sport"]=="soccer" else (255,80,90,255)
-        if event["sport"]=="nba" and event["day_offset"]==1 and not event["completed"]:
-            heading="TOMORROW"
-            detail=event["date"].astimezone(TZ).strftime("%-I:%M %p")
-        elif event["kind"]=="LAST RESULT":
-            heading="LAST RESULT"
-            detail="YESTERDAY • FINAL" if event["day_offset"]==-1 else "FINAL"
+        if event["sport"]=="nba":
+            if event["kind"]=="LAST RESULT":
+                heading="LAST RESULT"
+                detail="YESTERDAY • FINAL" if event["day_offset"]==-1 else "FINAL"
+            else:
+                heading="NBA"
+                detail=event_time_label(event)
+            left,right,matchup_mark=nba_display_teams(event)
         else:
-            heading="NEXT MATCH" if event["sport"]=="soccer" else "NEXT GAME"
-            detail=event_time_label(event)
+            if event["kind"]=="LAST RESULT":
+                heading="LAST RESULT"
+                detail="YESTERDAY • FINAL" if event["day_offset"]==-1 else "FINAL"
+            else:
+                heading="NEXT MATCH"
+                detail=event_time_label(event)
+            left,right=event["teams"][:2]
+            matchup_mark="VS"
         centered_text(draw,heading,W/2,next_y+56,font(40,True),accent)
-        left,right=event["teams"][:2]
         left_cx=x+card_w*0.245
         right_cx=x+card_w*0.755
         icon_size=(190,125) if event["sport"]=="soccer" else (145,145)
@@ -757,7 +783,7 @@ def draw_centered_panel(im,events,show_standings,competition_label):
             score=f"{left[1] or '0'} – {right[1] or '0'}"
             centered_text(draw,score,W/2,icon_y,font(60,True),(255,255,255,255))
         else:
-            centered_text(draw,"VS",W/2,icon_y,font(56,True),(255,255,255,255))
+            centered_text(draw,matchup_mark,W/2,icon_y,font(56,True),(255,255,255,255))
         centered_text(draw,display_name(left[0]).upper(),left_cx,next_y+307,font(32,True),(248,248,250,255))
         centered_text(draw,display_name(right[0]).upper(),right_cx,next_y+307,font(32,True),(248,248,250,255))
         centered_text(draw,detail,W/2,next_y+380,font(36,True),accent)
