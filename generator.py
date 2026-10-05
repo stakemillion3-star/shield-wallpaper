@@ -155,15 +155,9 @@ def display_name(name):
     return "Bosna I Hercegovina" if name in ("Bosnia and Herzegovina","Bosnia & Herzegovina","Bosnia-Herzegovina","Bosnia") else name
 
 def group_standings_from_results():
-    # Rebuild B4 from all four teams' ESPN schedules as a fallback when the
-    # league table is late to reflect a completed match.
-    team_slugs={
-        "bosnia-herzegovina":"Bosnia and Herzegovina",
-        "sweden":"Sweden",
-        "poland":"Poland",
-        "romania":"Romania"
-    }
-    expected=set(team_slugs.values())
+    # Rebuild B4 from completed ESPN Nations League scoreboard events when
+    # the published standings table has not caught up yet.
+    expected={"Bosnia and Herzegovina","Sweden","Poland","Romania"}
     def canonical(name):
         low=name.lower()
         if "bosnia" in low:
@@ -172,37 +166,31 @@ def group_standings_from_results():
             if team.lower()==low:
                 return team
         return None
-    def fetch_schedule_for(slug):
-        url=f"https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/teams/{slug}/schedule"
-        return slug,get(url,timeout=12)
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        responses=list(pool.map(fetch_schedule_for,team_slugs))
+    data=get(
+        "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/scoreboard"
+        "?dates=20260901-20261130&limit=1000",
+        timeout=15
+    )
+    events=data.get("events",[])
     games={}
-    teams_seen=set()
-    for slug,data in responses:
-        events=data.get("events",[])
-        own_team=team_slugs[slug]
-        if not any(any(canonical(t[0])==own_team for t in parse_event(e)["teams"]) for e in events if e.get("date")):
-            raise ValueError(f"ESPN schedule contained no fixtures for {own_team}")
-        teams_seen.add(own_team)
-        for event in events:
-            if not event.get("date"):
-                continue
-            parsed=parse_event(event)
-            if not parsed["completed"] or len(parsed["teams"])<2:
-                continue
-            home,away=parsed["teams"][0],parsed["teams"][1]
-            home_name,away_name=canonical(home[0]),canonical(away[0])
-            if home_name not in expected or away_name not in expected:
-                continue
-            try:
-                home_score,away_score=int(home[1]),int(away[1])
-            except (TypeError,ValueError):
-                continue
-            key=(parsed["date"].isoformat(),home_name,away_name)
-            games[key]=(home_name,away_name,home_score,away_score)
-    if teams_seen!=expected or not games:
-        raise ValueError("ESPN schedules did not provide a complete Group B4 results set")
+    seen=set()
+    for event in events:
+        if not event.get("date"):
+            continue
+        parsed=parse_event(event)
+        names=[canonical(team[0]) for team in parsed["teams"]]
+        seen.update(name for name in names if name)
+        if not parsed["completed"] or len(parsed["teams"])<2 or not all(names):
+            continue
+        home,away=parsed["teams"][0],parsed["teams"][1]
+        try:
+            home_score,away_score=int(home[1]),int(away[1])
+        except (TypeError,ValueError):
+            continue
+        key=(parsed["date"].isoformat(),names[0],names[1])
+        games[key]=(names[0],names[1],home_score,away_score)
+    if not events or not games or not expected.issubset(seen):
+        raise ValueError("ESPN scoreboard did not provide a complete B4 results set")
     table={name:{"played":0,"wins":0,"draws":0,"losses":0,"gf":0,"ga":0,"points":0}
            for name in expected}
     for home,away,hs,as_ in games.values():
@@ -226,7 +214,6 @@ def group_standings_from_results():
                      str(stats["draws"]),str(stats["losses"]),
                      f"{gd:+d}",str(stats["points"])))
     return rows
-
 
 def standings_data(sport):
     if sport!="soccer":
