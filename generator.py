@@ -330,7 +330,7 @@ def nba_standings_data():
         row["rank"]=str(i)
         row["pct"]=f"{row['pct']:.3f}"[1:] if row["pct"]<1 else f"{row['pct']:.3f}"
         gb=((leader["wins"]-row["wins"])+(row["losses"]-leader["losses"]))/2
-        row["gb"]="—" if gb==0 else (str(int(gb)) if gb.is_integer() else f"{gb:.1f}")
+        row["gb"]="—" if gb==0 else f"{gb:.1f}"
     leaders=rows[:4]
     if toronto not in leaders:
         leaders.append(toronto)
@@ -569,9 +569,11 @@ def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
         col_x=[x+w-510,x+w-390,x+w-260,x+w-120]
         for heading,cx in zip(["W","L","PCT","GB"],col_x):
             centered_text(draw,heading,cx,y+108,font(31,True),(235,238,244,255))
-        row_h=min(58,(h-150)//max(1,len(rows))); row_start=y+139
+        slot_h=max(58,(h-150)//max(1,len(rows)))
+        row_h=58
+        row_start=y+139
         for i,row in enumerate(rows):
-            ry=row_start+i*row_h
+            ry=row_start+i*slot_h+(slot_h-row_h)//2
             if row["abbr"]=="TOR" or "raptors" in row["name"].lower():
                 draw.rounded_rectangle((x+22,ry-2,x+w-22,ry+row_h-4),radius=12,fill=(150,32,45,185))
             centered_text(draw,row["rank"]+".",x+64,ry+row_h/2,font(32,True),(255,255,255,255))
