@@ -568,6 +568,22 @@ def date_window_events(last,upcoming,sport):
         selected.append(item)
     return selected
 
+def regular_nba_event_stack(events):
+    active_today=[e for e in events if e["day_offset"]==0 and not e["completed"]]
+    final_today=[e for e in events if e["day_offset"]==0 and e["completed"]]
+    final_yesterday=[e for e in events if e["day_offset"]==-1 and e["completed"]]
+    next_tomorrow=[e for e in events if e["day_offset"]==1 and not e["completed"]]
+    if active_today:
+        return [active_today[0]]+([final_yesterday[-1]] if final_yesterday else [])
+    if final_today:
+        return [final_today[-1]]+([next_tomorrow[0]] if next_tomorrow else [])
+    if next_tomorrow:
+        return [next_tomorrow[0]]+([final_yesterday[-1]] if final_yesterday else [])
+    if final_yesterday:
+        return [final_yesterday[-1]]
+    return []
+
+
 def event_time_label(event):
     offset=event["day_offset"]
     if offset==-1:
@@ -667,44 +683,54 @@ def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
 def draw_centered_panel(im,events,show_standings,competition_label):
     if not events:
         return im
-    events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
-    # One centered primary matchup card; its proportions are scaled down enough
-    # to retain the calm composition and open background of the final copy.
+    # The primary matchup stays full-size. An adjacent result or next game
+    # uses a compact row, with standings below both during the regular season.
     card_w=2500
     card_h=740
+    secondary_h=300 if len(events)>1 else 0
     standings_h=450 if show_standings else 0
-    gap=22 if show_standings else 0
+    gap=22
+    layer_gaps=(int(secondary_h>0)+int(standings_h>0))*gap
+    group_h=card_h+secondary_h+standings_h+layer_gaps
     x=(W-card_w)//2
-    group_h=card_h+gap+standings_h
     safe_top,safe_bottom=260,1840
     y=max(safe_top,(safe_top+safe_bottom-group_h)//2+65)
     im=panel(im,(x,y,x+card_w,y+card_h),194)
     draw=ImageDraw.Draw(im)
     draw_event_row(im,draw,events[0],x+70,y+8,card_w-140,card_h-16)
 
-    # Keep a second game visible only when it is also in the requested
-    # yesterday/today/tomorrow window, beneath the primary card.
-    if len(events)>1:
-        second_y=y+card_h+gap
-        second_h=min(310, max(260, group_h-card_h-gap))
-        im=panel(im,(x,second_y,x+card_w,second_y+second_h),194)
+    next_y=y+card_h
+    if secondary_h:
+        next_y+=gap
+        im=panel(im,(x,next_y,x+card_w,next_y+secondary_h),194)
         draw=ImageDraw.Draw(im)
         event=events[1]
         accent=(80,170,255,255) if event["sport"]=="soccer" else (255,80,90,255)
-        centered_text(draw,( "NATIONS LEAGUE" if event["sport"]=="soccer" else "NBA" )+"  •  "+event["kind"],
-                      W/2,second_y+45,font(36,True),accent)
+        heading="LAST RESULT" if event["kind"]=="LAST RESULT" else (
+            "NEXT MATCH" if event["sport"]=="soccer" else "NEXT GAME")
+        centered_text(draw,heading,W/2,next_y+38,font(34,True),accent)
         left,right=event["teams"][:2]
-        place_icon(im,left[0],event["sport"],W*0.27,second_y+143,(220,125) if event["sport"]=="soccer" else (135,135))
-        place_icon(im,right[0],event["sport"],W*0.73,second_y+143,(220,125) if event["sport"]=="soccer" else (135,135))
-        centered_text(draw,"VS" if not event["completed"] and event.get("state")!="in" else f"{left[1]} – {right[1]}",
-                      W/2,second_y+140,font(48,True),(255,255,255,255))
-        centered_text(draw,event_time_label(event),W/2,second_y+254,font(35,True),accent)
+        left_cx=x+card_w*0.245
+        right_cx=x+card_w*0.755
+        icon_size=(180,115) if event["sport"]=="soccer" else (115,115)
+        place_icon(im,left[0],event["sport"],left_cx,next_y+132,icon_size)
+        place_icon(im,right[0],event["sport"],right_cx,next_y+132,icon_size)
+        if event["completed"] or event.get("state")=="in":
+            score=f"{left[1] or '0'} – {right[1] or '0'}"
+            centered_text(draw,score,W/2,next_y+132,font(56,True),(255,255,255,255))
+        else:
+            centered_text(draw,"VS",W/2,next_y+132,font(52,True),(255,255,255,255))
+        centered_text(draw,display_name(left[0]).upper(),left_cx,next_y+220,font(30,True),(248,248,250,255))
+        centered_text(draw,display_name(right[0]).upper(),right_cx,next_y+220,font(30,True),(248,248,250,255))
+        centered_text(draw,event_time_label(event),W/2,next_y+270,font(32,True),accent)
+        next_y+=secondary_h
 
     if show_standings:
-        stand_y=y+card_h+gap
+        stand_y=next_y+gap
         im=draw_standings_panel(im,x,stand_y,card_w,standings_h,competition_label,
                                 sport=events[0]["sport"])
     return im
+
 
 def main():
     global DISPLAY_DATE
@@ -717,42 +743,69 @@ def main():
             DISPLAY_DATE=date.fromisoformat(preview["as_of"])
             print(f"Preview date active: {DISPLAY_DATE}")
     except (OSError,ValueError,KeyError,TypeError): pass
+
     competition_label="NATIONS LEAGUE • LEAGUE B • GROUP B4"
     try:
-        bl,bn,bcomp=bosnia(); competition_label=bcomp or competition_label
+        bl,bn,bcomp=bosnia()
+        competition_label=bcomp or competition_label
         soccer_events=date_window_events(bl,bn,"soccer")
     except Exception as e:
         soccer_events=[]; errors.append("Bosnia: "+str(e))
+
+    rphase="PRESEASON"
     try:
-        rl,rn,rphase=raptors(); nba_events=date_window_events(rl,rn,"nba")
-        for event in nba_events: event["phase"]=rphase
+        rl,rn,rphase=raptors()
+        raw_nba_events=date_window_events(rl,rn,"nba")
+        for event in raw_nba_events: event["phase"]=rphase
+        if rphase=="PRESEASON":
+            nba_events=sorted(raw_nba_events,key=lambda event:event["date"])[:1]
+        else:
+            nba_events=regular_nba_event_stack(raw_nba_events)
     except Exception as e:
         nba_events=[]; errors.append("Raptors: "+str(e))
-    events=soccer_events+nba_events
-    if events:
-        preferred_day=next((offset for offset in (0,1,-1)
-                            if any(event["day_offset"]==offset for event in events)),events[0]["day_offset"])
-        events=[event for event in events if event["day_offset"]==preferred_day]
+
+    # In regular season, preserve the NBA matchup/result pair as one stack.
+    # If a same-day Bosnia fixture exists, retain the shared multi-sport day
+    # selection used by the rest of the wallpaper.
+    regular_nba=(rphase=="REGULAR SEASON")
+    if regular_nba and not any(e["day_offset"]==0 for e in soccer_events):
+        events=nba_events
+    else:
+        events=soccer_events+nba_events
+        if events:
+            preferred_day=next((offset for offset in (0,1,-1)
+                                if any(e["day_offset"]==offset for e in events)),events[0]["day_offset"])
+            events=[event for event in events if event["day_offset"]==preferred_day]
+            events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
+
     standings_sport=None
     if any(event["sport"]=="soccer" and event["day_offset"]==0 for event in events):
-        standings_sport="soccer"; competition_label=bcomp or "NATIONS LEAGUE • GROUP B4"
-    elif any(event["sport"]=="nba" and event["day_offset"] in (0,1) for event in events):
-        standings_sport="nba"; competition_label="PRESEASON • EAST • ESPN LIVE"
+        standings_sport="soccer"
+        competition_label=bcomp or "NATIONS LEAGUE • GROUP B4"
+    elif regular_nba and any(event["sport"]=="nba" for event in events):
+        standings_sport="nba"
+        competition_label=""
     show_standings=standings_sport is not None
-    if standings_sport=="nba" and not standings_data("nba"): show_standings=False
+    if standings_sport=="nba" and not standings_data("nba"):
+        show_standings=False
+
     im=background().convert("RGBA")
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,26))
     im=Image.alpha_composite(im,shade)
-    if events: im=draw_centered_panel(im,events,show_standings,competition_label)
-    elif errors: print("No games in the three-day display window. "+" | ".join(errors))
+    if events:
+        im=draw_centered_panel(im,events,show_standings,competition_label)
+    elif errors:
+        print("No games in the three-day display window. "+" | ".join(errors))
     im.convert("RGB").save("wallpaper.jpg","JPEG",quality=96,optimize=True,progressive=True)
+
     version=datetime.now(TZ).strftime("%Y%m%d")
     digest=hashlib.sha256(open("wallpaper.jpg","rb").read()).hexdigest()[:12]
     feed=[{"location":"Shield Sports","title":"Bosnia & Raptors Daily Wallpaper",
            "url_img":f"https://stakemillion3-star.github.io/shield-wallpaper/wallpaper.jpg?v={version}-{digest}"}]
     with open("p.json","w",encoding="utf-8") as output:
         json.dump(feed,output,ensure_ascii=False,indent=2); output.write("\n")
+
 
 
 if __name__=="__main__":
