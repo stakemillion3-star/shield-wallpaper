@@ -154,12 +154,56 @@ def display_name(name):
     return "Bosna I Hercegovina" if name in ("Bosnia and Herzegovina","Bosnia & Herzegovina","Bosnia-Herzegovina","Bosnia") else name
 
 def standings_data(sport):
-    if sport=="soccer":
-        return [("1","Sweden","3","2","1","0","+3","7"),
-                ("2","Bosnia and Herzegovina","3","1","2","0","+2","5"),
-                ("3","Poland","3","1","1","1","+4","4"),
-                ("4","Romania","3","0","0","3","-9","0")]
-    return []
+    if sport!="soccer":
+        return []
+    fallback=[
+        ("1","Sweden","3","2","1","0","+3","7"),
+        ("2","Bosnia and Herzegovina","3","1","2","0","+2","5"),
+        ("3","Poland","3","1","1","1","+4","4"),
+        ("4","Romania","3","0","0","3","-9","0")
+    ]
+    try:
+        # ESPN publishes soccer standings on the /apis/v2 route (not site/v2).
+        data=get("https://site.api.espn.com/apis/v2/sports/soccer/uefa.nations/standings?season=2026")
+        group=next((g for g in data.get("children",[])
+                    if "b4" in (g.get("name","")+g.get("abbreviation","")).lower()),None)
+        entries=(group or {}).get("standings",{}).get("entries",[])
+        rows=[]
+        aliases={
+            "gamesplayed":("gamesplayed","played"),
+            "wins":("wins","win"),
+            "draws":("ties","draws","draw"),
+            "losses":("losses","loss"),
+            "gd":("pointdifferential","goaldifference","goaldiff","differential"),
+            "points":("points","leaguepoints","totalpoints")
+        }
+        for entry in entries:
+            team=entry.get("team") or {}
+            name=team.get("displayName") or team.get("name","")
+            if "bosnia" in name.lower():
+                name="Bosnia and Herzegovina"
+            elif name.lower() in ("sweden","poland","romania"):
+                name=name.title()
+            stats={str(s.get("name","")).lower():s for s in entry.get("stats",[])}
+            stats.update({str(s.get("abbreviation","")).lower():s for s in entry.get("stats",[]) if s.get("abbreviation")})
+            def value_for(key):
+                for alias in aliases[key]:
+                    stat=stats.get(alias)
+                    if stat:
+                        return str(stat.get("displayValue",stat.get("value","")))
+                return ""
+            played,wins,draws,losses,gd,points=(value_for(k) for k in ("gamesplayed","wins","draws","losses","gd","points"))
+            if not all((name,played,wins,draws,losses,gd,points)):
+                raise ValueError("ESPN standings row is missing a required table value")
+            rows.append((str(len(rows)+1),name,played,wins,draws,losses,gd,points))
+        required={"Sweden","Bosnia and Herzegovina","Poland","Romania"}
+        if len(rows)!=4 or {r[1] for r in rows}!=required:
+            raise ValueError("ESPN did not return the four expected Group B4 teams")
+        print("Loaded live UEFA Nations League Group B4 standings from ESPN.")
+        return rows
+    except Exception as exc:
+        print(f"ESPN Group B4 standings unavailable; using the last known table: {exc}")
+        return fallback
 
 
 def centered_text(d,text,cx,cy,ft,fill):
