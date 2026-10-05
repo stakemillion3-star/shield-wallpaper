@@ -569,7 +569,7 @@ def main():
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,26))
     im=Image.alpha_composite(im,shade)
     # Subtle dock behind the launcher row, matching the sports panels.
-    im=panel(im,(180,1900,3660,2110),194)
+    im=panel(im,(180,1770,3660,2135),194)
     if events:
         im=draw_centered_panel(im,events,show_standings,competition_label)
     elif errors:
