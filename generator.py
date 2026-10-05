@@ -501,10 +501,12 @@ def draw_centered_panel(im,events,show_standings,competition_label):
     events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
     # One centered primary matchup card; its proportions are scaled down enough
     # to retain the calm composition and open background of the final copy.
-    card_w=2860
-    card_h=850
+    card_w=2500
+    card_h=740
+    standings_h=520 if show_standings else 0
+    gap=22 if show_standings else 0
     x=(W-card_w)//2
-    group_h=card_h+(34+430 if show_standings else 0)
+    group_h=card_h+gap+standings_h
     safe_top,safe_bottom=260,1840
     y=max(safe_top,(safe_top+safe_bottom-group_h)//2)
     im=panel(im,(x,y,x+card_w,y+card_h),194)
@@ -514,8 +516,8 @@ def draw_centered_panel(im,events,show_standings,competition_label):
     # Keep a second game visible only when it is also in the requested
     # yesterday/today/tomorrow window, beneath the primary card.
     if len(events)>1:
-        second_y=y+card_h+24
-        second_h=min(310, group_h-card_h-24)
+        second_y=y+card_h+gap
+        second_h=min(310, max(260, group_h-card_h-gap))
         im=panel(im,(x,second_y,x+card_w,second_y+second_h),194)
         draw=ImageDraw.Draw(im)
         event=events[1]
@@ -530,8 +532,8 @@ def draw_centered_panel(im,events,show_standings,competition_label):
         centered_text(draw,event_time_label(event),W/2,second_y+254,font(35,True),accent)
 
     if show_standings:
-        stand_y=y+group_h-430
-        im=draw_standings_panel(im,x,stand_y,card_w,430,competition_label)
+        stand_y=y+card_h+gap
+        im=draw_standings_panel(im,x,stand_y,card_w,standings_h,competition_label)
     return im
 
 def main():
