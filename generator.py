@@ -162,7 +162,16 @@ def panel(base,box,alpha=150):
     d.rounded_rectangle(box,radius=36,fill=(4,10,20,alpha),outline=(255,255,255,45),width=2)
     return Image.alpha_composite(base.convert("RGBA"),ov)
 
-def fmt_date(dt): return dt.strftime("%a %b %d • %-I:%M %p")
+def fmt_date(dt):
+    local=dt.astimezone(TZ)
+    delta=(local.date()-datetime.now(TZ).date()).days
+    if delta==0:
+        return "TODAY • "+local.strftime("%-I:%M %p")
+    if delta==1:
+        return "TOMORROW • "+local.strftime("%-I:%M %p")
+    if delta==-1:
+        return "YESTERDAY • FINAL"
+    return local.strftime("%a %b %d • %-I:%M %p")
 
 def matchup(e,with_score=False):
     if not e:return "—"
@@ -359,3 +368,173 @@ def draw_upcoming(im,d,x,y,w,e,sport,accent):
     centered_text(d,fmt_date(e["date"]),cx,y+325,font(52,True),accent)
 
 
+def date_window_events(last,upcoming,sport):
+    today=datetime.now(TZ).date()
+    now=datetime.now(TZ)
+    candidates=([last] if last else [])+(upcoming or [])
+    selected=[]
+    seen=set()
+    for event in candidates:
+        if len(event.get("teams",[]))<2:
+            continue
+        local_date=event["date"].astimezone(TZ).date()
+        offset=(local_date-today).days
+        if offset not in (-1,0,1):
+            continue
+        if offset==-1 and not event["completed"]:
+            continue
+        if offset==1 and event["completed"]:
+            continue
+        key=(sport,event["date"].isoformat(),tuple(team[0] for team in event["teams"]))
+        if key in seen:
+            continue
+        seen.add(key)
+        item=dict(event)
+        item["sport"]=sport
+        item["day_offset"]=offset
+        if offset==-1 or event["completed"]:
+            item["kind"]="LAST RESULT"
+        elif event.get("state")=="in":
+            item["kind"]="LIVE"
+        else:
+            item["kind"]="NEXT MATCH" if sport=="soccer" else "NEXT GAME"
+        selected.append(item)
+    return selected
+
+def event_time_label(event):
+    offset=event["day_offset"]
+    if offset==-1:
+        return "YESTERDAY • FINAL"
+    if event["completed"]:
+        return "TODAY • FINAL"
+    if event.get("state")=="in":
+        return "LIVE • TODAY"
+    return fmt_date(event["date"])
+
+def fitted_font(draw,text,max_width,initial=44,minimum=32):
+    size=initial
+    while size>minimum and draw.textbbox((0,0),text,font=font(size,True))[2]>max_width:
+        size-=2
+    return font(size,True)
+
+def draw_event_row(im,draw,event,x,y,w,row_h):
+    soccer=event["sport"]=="soccer"
+    accent=(80,170,255,255) if soccer else (255,80,90,255)
+    left,right=event["teams"][0],event["teams"][1]
+    league="NATIONS LEAGUE" if soccer else "NBA"
+    centered_text(draw,league+"  •  "+event["kind"],x+w/2,y+23,font(29,True),accent)
+    left_icon_x=x+w*0.16
+    left_name_x=x+w*0.335
+    center_x=x+w/2
+    right_name_x=x+w*0.665
+    right_icon_x=x+w*0.84
+    icon_size=(220,145) if soccer else (175,175)
+    place_icon(im,left[0],event["sport"],left_icon_x,y+91,icon_size)
+    place_icon(im,right[0],event["sport"],right_icon_x,y+91,icon_size)
+    left_name=display_name(left[0]).upper()
+    right_name=display_name(right[0]).upper()
+    draw.text((left_name_x,y+91),left_name,anchor="mm",
+              font=fitted_font(draw,left_name,620),(248,248,250,255))
+    draw.text((right_name_x,y+91),right_name,anchor="mm",
+              font=fitted_font(draw,right_name,620),(248,248,250,255))
+    if left[1] is not None and right[1] is not None:
+        score=f"{left[1]}  –  {right[1]}"
+    else:
+        score="VS"
+    centered_text(draw,score,center_x,y+91,font(80,True),(255,255,255,255))
+    centered_text(draw,event_time_label(event),center_x,y+151,font(34,True),accent)
+
+def draw_standings_inline(im,draw,x,y,w,accent,label):
+    centered_text(draw,label,x+w/2,y+28,font(35,True),accent)
+    col_x=[x+w-540,x+w-430,x+w-320,x+w-205,x+w-75]
+    for heading,cx in zip(["W","D","L","GD","PTS"],col_x):
+        centered_text(draw,heading,cx,y+75,font(30,True),(235,238,244,255))
+    rows=standings_data("soccer")
+    row_start=y+108
+    row_h=64
+    for index,(position,name,played,wins,draws,losses,gd,points) in enumerate(rows):
+        row_y=row_start+index*row_h
+        if "Bosnia" in name:
+            draw.rounded_rectangle((x+8,row_y-1,x+w-8,row_y+59),radius=10,
+                                   fill=(35,105,170,165))
+        centered_text(draw,position+".",x+35,row_y+29,font(35,True),(255,255,255,255))
+        icon=team_icon(name,"soccer",(78,50))
+        if icon:
+            im.alpha_composite(icon,(x+75,row_y+29-icon.height//2))
+        team_name=display_name(name)
+        draw.text((x+176,row_y+29),team_name,anchor="lm",
+                  font=fitted_font(draw,team_name,w-820,35,30),(255,255,255,255))
+        for cx,value in zip(col_x,[wins,draws,losses,gd,points]):
+            centered_text(draw,str(value),cx,row_y+29,font(34,True),(255,255,255,255))
+
+def draw_centered_panel(im,events,show_standings,competition_label):
+    if not events:
+        return im
+    events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
+    panel_w=2840
+    row_h=184
+    standings_h=382 if show_standings else 0
+    extra_gap=20 if show_standings else 0
+    panel_h=52+len(events)*row_h+standings_h+extra_gap+32
+    x=(W-panel_w)//2
+    # Keep the whole group centered in the safe area above Projectivy's app row.
+    safe_top,safe_bottom=250,1850
+    y=max(safe_top,(safe_top+safe_bottom-panel_h)//2)
+    im=panel(im,(x,y,x+panel_w,y+panel_h),194)
+    draw=ImageDraw.Draw(im)
+    row_y=y+30
+    for index,event in enumerate(events):
+        draw_event_row(im,draw,event,x+45,row_y,panel_w-90,row_h)
+        row_y+=row_h
+        if index<len(events)-1 or show_standings:
+            draw.line((x+85,row_y-1,x+panel_w-85,row_y-1),
+                      fill=(255,255,255,48),width=2)
+    if show_standings:
+        draw_standings_inline(im,draw,x+170,row_y+extra_gap,panel_w-340,
+                              (80,170,255,255),competition_label)
+    return im
+
+def main():
+    errors=[]
+    competition_label="NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4"
+    try:
+        last,next_games,bcomp=bosnia()
+        competition_label=bcomp or competition_label
+        soccer_events=date_window_events(last,next_games,"soccer")
+    except Exception as exc:
+        soccer_events=[]
+        errors.append("Bosnia: "+str(exc))
+    try:
+        last,next_games,rphase=raptors()
+        nba_events=date_window_events(last,next_games,"nba")
+    except Exception as exc:
+        nba_events=[]
+        errors.append("Raptors: "+str(exc))
+    events=soccer_events+nba_events
+    show_standings=any(
+        event["sport"]=="soccer" and event["day_offset"]==0
+        for event in events
+    )
+    im=background().convert("RGBA")
+    shade=Image.new("RGBA",(W,H),(0,0,0,26))
+    ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,26))
+    im=Image.alpha_composite(im,shade)
+    if events:
+        im=draw_centered_panel(im,events,show_standings,competition_label)
+    elif errors:
+        print("No games in the three-day display window. "+" | ".join(errors))
+    im.convert("RGB").save("wallpaper.jpg","JPEG",quality=96,optimize=True,progressive=True)
+
+    version=datetime.now(TZ).strftime("%Y%m%d")
+    digest=hashlib.sha256(open("wallpaper.jpg","rb").read()).hexdigest()[:12]
+    feed=[{
+        "location":"Shield Sports",
+        "title":"Bosnia & Raptors Daily Wallpaper",
+        "url_img":f"https://stakemillion3-star.github.io/shield-wallpaper/wallpaper.jpg?v={version}-{digest}"
+    }]
+    with open("p.json","w",encoding="utf-8") as output:
+        json.dump(feed,output,ensure_ascii=False,indent=2)
+        output.write("\n")
+
+if __name__=="__main__":
+    main()
