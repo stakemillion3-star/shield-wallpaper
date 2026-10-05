@@ -464,7 +464,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
         time_y=y+738
     else:
         time_y=y+655
-    centered_text(draw,event_time_label(event),center_x,time_y,font(56,True),accent)
+    centered_text(draw,event_time_label(event),center_x,time_y,font(64,True),(255,255,255,255))
 
 def draw_standings_panel(im,x,y,w,h,competition_label):
     im=panel(im,(x,y,x+w,y+h),194)
@@ -506,7 +506,7 @@ def draw_centered_panel(im,events,show_standings,competition_label):
     x=(W-card_w)//2
     group_h=card_h+gap+standings_h
     safe_top,safe_bottom=260,1840
-    y=max(safe_top,(safe_top+safe_bottom-group_h)//2)
+    y=max(safe_top,(safe_top+safe_bottom-group_h)//2+65)
     im=panel(im,(x,y,x+card_w,y+card_h),194)
     draw=ImageDraw.Draw(im)
     draw_event_row(im,draw,events[0],x+70,y+8,card_w-140,card_h-16)
