@@ -48,8 +48,16 @@ def team_icon(name,sport,size=(100,70)):
     cc=COUNTRY_CODE.get(name)
     if not cc and "bosnia" in name.lower():
         cc="ba"
-    # Download enough resolution for the upcoming flags to render much larger than result flags.
-    return remote_image(f"https://flagcdn.com/w640/{cc}.png",size) if cc else None
+    if not cc:
+        return None
+    # Keep every national flag the same displayed height while preserving its
+    # real aspect ratio; event cards use a 600x300 icon field.
+    icon=remote_image(f"https://flagcdn.com/w640/{cc}.png",(640,400))
+    if icon:
+        target_h=size[1]
+        target_w=max(1,round(icon.width*target_h/icon.height))
+        icon=icon.resize((target_w,target_h),Image.Resampling.LANCZOS)
+    return icon
 
 def font(size,bold=False):
     paths=[
@@ -663,7 +671,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
 
     # Every event card uses the same icon field and the same typography,
     # whether it is the upper card, lower card, or a centered single card.
-    icon_size=(450,300)
+    icon_size=(600,300)
     icon_y=y+300
     left_icon=place_icon(im,left[0],event["sport"],left_cx,icon_y,icon_size)
     right_icon=place_icon(im,right[0],event["sport"],right_cx,icon_y,icon_size)
