@@ -450,8 +450,8 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
 
     left_name=display_name(left[0]).upper()
     right_name=display_name(right[0]).upper()
-    centered_text(draw,left_name,left_cx,y+535,font(51,True),(248,248,250,255))
-    centered_text(draw,right_name,right_cx,y+535,font(51,True),(248,248,250,255))
+    centered_text(draw,left_name,left_cx,y+505,font(51,True),(248,248,250,255))
+    centered_text(draw,right_name,right_cx,y+505,font(51,True),(248,248,250,255))
     # ESPN sometimes sends placeholder 0 scores before kickoff; only show scores
     # for live or completed games. Scheduled events always use VS.
     if event["completed"]:
@@ -568,8 +568,6 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,26))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,26))
     im=Image.alpha_composite(im,shade)
-    # Subtle dock behind the launcher row, matching the sports panels.
-    im=panel(im,(180,1770,3660,2135),194)
     if events:
         im=draw_centered_panel(im,events,show_standings,competition_label)
     elif errors:
