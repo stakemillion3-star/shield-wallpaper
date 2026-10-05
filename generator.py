@@ -469,15 +469,13 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
 def draw_standings_panel(im,x,y,w,h,competition_label):
     im=panel(im,(x,y,x+w,y+h),194)
     draw=ImageDraw.Draw(im)
-    accent=(80,170,255,255)
-    centered_text(draw,competition_label,x+w/2,y+58,font(44,True),accent)
     rows=standings_data("soccer")
     table_w=min(w-150,2320)
     tx=x+(w-table_w)//2
     col_x=[tx+table_w-575,tx+table_w-455,tx+table_w-335,tx+table_w-205,tx+table_w-65]
     for heading,cx in zip(["W","D","L","GD","PTS"],col_x):
-        centered_text(draw,heading,cx,y+125,font(37,True),(235,238,244,255))
-    row_start=y+183
+        centered_text(draw,heading,cx,y+62,font(37,True),(235,238,244,255))
+    row_start=y+120
     row_h=77
     for index,(position,name,played,wins,draws,losses,gd,points) in enumerate(rows):
         row_y=row_start+index*row_h
