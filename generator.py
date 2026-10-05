@@ -1,12 +1,14 @@
 import hashlib, io, json, os, requests
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 W,H=3840,2160
 TZ=ZoneInfo("America/Toronto")
 UA={"User-Agent":"Mozilla/5.0 shield-wallpaper/1.0"}
+DISPLAY_DATE=None
+NBA_LOGOS={}
 
 def get(url,timeout=25):
     r=requests.get(url,headers=UA,timeout=timeout); r.raise_for_status(); return r.json()
@@ -28,6 +30,9 @@ COUNTRY_CODE={"Bosnia and Herzegovina":"ba","Sweden":"se","Poland":"pl","Romania
 
 def team_icon(name,sport,size=(100,70)):
     if sport=="nba":
+        url=NBA_LOGOS.get(name)
+        if url:
+            return remote_image(url,size)
         ab=TEAM_ABBR.get(name)
         return remote_image(f"https://a.espncdn.com/i/teamlogos/nba/500/{ab}.png",size) if ab else None
     cc=COUNTRY_CODE.get(name)
@@ -174,7 +179,8 @@ def panel(base,box,alpha=150):
 
 def fmt_date(dt):
     local=dt.astimezone(TZ)
-    delta=(local.date()-datetime.now(TZ).date()).days
+    today=DISPLAY_DATE or datetime.now(TZ).date()
+    delta=(local.date()-today).days
     if delta==0:
         return "TODAY • "+local.strftime("%-I:%M %p")
     if delta==1:
@@ -182,6 +188,7 @@ def fmt_date(dt):
     if delta==-1:
         return "YESTERDAY • FINAL"
     return local.strftime("%a %b %d • %-I:%M %p")
+
 
 def matchup(e,with_score=False):
     if not e:return "—"
@@ -249,7 +256,62 @@ def group_standings_from_results():
                      str(stats["draws"]),str(stats["losses"]),f"{gd:+d}",str(stats["points"])))
     return rows
 
+def nba_standings_data():
+    # Read real 2026-27 preseason records directly from ESPN.
+    data=get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/standings?season=2027&seasontype=1")
+    east={"ATL","BOS","BKN","CHA","CHI","CLE","DET","IND","MIA","MIL","NY","ORL","PHI","TOR","WSH"}
+    west={"DAL","DEN","GS","HOU","LAC","LAL","MEM","MIN","NO","OKC","PHX","POR","SAC","SA","UTAH"}
+    found=[]
+    def walk(node,conf=None):
+        label=(str(node.get("name",""))+" "+str(node.get("abbreviation",""))).lower()
+        if "eastern conference" in label or label.strip().endswith(" east") or label=="east": conf="east"
+        elif "western conference" in label or label.strip().endswith(" west") or label=="west": conf="west"
+        elif any(x in label for x in ("atlantic division","central division","southeast division")): conf="east"
+        elif any(x in label for x in ("northwest division","pacific division","southwest division")): conf="west"
+        for entry in (node.get("standings") or {}).get("entries",[]):
+            team=entry.get("team") or {}; name=team.get("displayName") or team.get("name") or ""
+            abbr=str(team.get("abbreviation","")).upper()
+            team_conf=conf or ("east" if abbr in east else "west" if abbr in west else None)
+            logos=team.get("logos") or []; logo=team.get("logo") or (logos[0].get("href") if logos else None)
+            if logo and name: NBA_LOGOS[name]=logo
+            stats={}
+            for stat in entry.get("stats",[]):
+                for key in (stat.get("name"),stat.get("abbreviation")):
+                    if key: stats[str(key).lower().replace("_","").replace(" ","")]=stat
+            def val(*keys):
+                for key in keys:
+                    stat=stats.get(key.lower().replace("_","").replace(" ",""))
+                    if stat: return str(stat.get("displayValue",stat.get("value","")))
+                return ""
+            wins=val("wins","win","w"); losses=val("losses","loss","l")
+            pct=val("winPercent","winpercentage","pct"); gb=val("gamesBehind","gb")
+            seed=val("playoffSeed","seed")
+            if name and team_conf=="east" and wins!="" and losses!="":
+                found.append({"name":name,"abbr":abbr,"wins":wins,"losses":losses,
+                    "pct":pct or "—","gb":gb or "—","seed":seed})
+        for child in node.get("children",[]) or []: walk(child,conf)
+    for group in data.get("children",[]) or []: walk(group)
+    if not found: walk(data)
+    toronto=next((r for r in found if r["abbr"]=="TOR" or "raptors" in r["name"].lower()),None)
+    if not toronto: raise ValueError("ESPN preseason Eastern standings not available")
+    def key(row):
+        try: return (0,int(row["seed"]))
+        except (ValueError,TypeError):
+            try: return (1,-float(row["pct"]),-int(row["wins"]))
+            except (ValueError,TypeError): return (2,found.index(row))
+    found.sort(key=key)
+    for i,row in enumerate(found,1): row["rank"]=row["seed"] or str(i)
+    result=found[:4]
+    if toronto not in result: result.append(toronto)
+    return result
+
+
 def standings_data(sport):
+    if sport=="nba":
+        try: return nba_standings_data()
+        except Exception as exc:
+            print(f"ESPN NBA preseason standings unavailable: {exc}")
+            return []
     if sport!="soccer":
         return []
     fallback=[
@@ -379,7 +441,7 @@ def draw_upcoming(im,d,x,y,w,e,sport,accent):
 
 
 def date_window_events(last,upcoming,sport):
-    today=datetime.now(TZ).date()
+    today=DISPLAY_DATE or datetime.now(TZ).date()
     now=datetime.now(TZ)
     candidates=([last] if last else [])+(upcoming or [])
     selected=[]
@@ -431,8 +493,8 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     soccer=event["sport"]=="soccer"
     accent=(80,170,255,255) if soccer else (255,80,90,255)
     left,right=event["teams"][0],event["teams"][1]
-    league="NATIONS LEAGUE" if soccer else "NBA"
-    heading=league if soccer else league+"  •  "+event["kind"]
+    league="NATIONS LEAGUE" if soccer else event.get("phase","NBA")
+    heading=league if soccer else (league if league=="PRESEASON" else league+"  •  "+event["kind"])
     centered_text(draw,heading,x+w/2,y+58,font(54,True),accent)
 
     left_cx=x+w*0.245
@@ -466,32 +528,46 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
         time_y=y+655
     centered_text(draw,event_time_label(event),center_x,time_y,font(64,True),accent)
 
-def draw_standings_panel(im,x,y,w,h,competition_label):
-    im=panel(im,(x,y,x+w,y+h),194)
-    draw=ImageDraw.Draw(im)
+def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
+    im=panel(im,(x,y,x+w,y+h),194); draw=ImageDraw.Draw(im)
+    if sport=="nba":
+        rows=standings_data("nba")
+        centered_text(draw,competition_label,x+w/2,y+48,font(37,True),(255,88,98,255))
+        col_x=[x+w-510,x+w-390,x+w-260,x+w-120]
+        for heading,cx in zip(["W","L","PCT","GB"],col_x):
+            centered_text(draw,heading,cx,y+108,font(31,True),(235,238,244,255))
+        row_h=min(58,(h-150)//max(1,len(rows))); row_start=y+139
+        for i,row in enumerate(rows):
+            ry=row_start+i*row_h
+            if row["abbr"]=="TOR" or "raptors" in row["name"].lower():
+                draw.rounded_rectangle((x+22,ry-2,x+w-22,ry+row_h-4),radius=12,fill=(150,32,45,185))
+            centered_text(draw,row["rank"]+".",x+64,ry+row_h/2,font(32,True),(255,255,255,255))
+            icon=team_icon(row["name"],"nba",(38,38))
+            if icon: im.alpha_composite(icon,(x+104,ry+int(row_h/2-icon.height/2)))
+            draw.text((x+164,ry+row_h/2),row["name"],anchor="lm",
+                      font=fitted_font(draw,row["name"],w-900,32,25),fill=(255,255,255,255))
+            for cx,value in zip(col_x,[row["wins"],row["losses"],row["pct"],row["gb"]]):
+                centered_text(draw,str(value),cx,ry+row_h/2,font(31,True),(255,255,255,255))
+        return im
     rows=standings_data("soccer")
-    table_w=min(w-150,2320)
-    tx=x+(w-table_w)//2
+    table_w=min(w-150,2320); tx=x+(w-table_w)//2
+    centered_text(draw,competition_label,x+w/2,y+42,font(35,True),(80,170,255,255))
     col_x=[tx+table_w-575,tx+table_w-455,tx+table_w-335,tx+table_w-205,tx+table_w-65]
     for heading,cx in zip(["W","D","L","GD","PTS"],col_x):
-        centered_text(draw,heading,cx,y+62,font(37,True),(235,238,244,255))
-    row_start=y+120
-    row_h=77
-    for index,(position,name,played,wins,draws,losses,gd,points) in enumerate(rows):
-        row_y=row_start+index*row_h
+        centered_text(draw,heading,cx,y+103,font(37,True),(235,238,244,255))
+    for i,(position,name,played,wins,draws,losses,gd,points) in enumerate(rows):
+        ry=y+145+i*77
         if "Bosnia" in name:
-            draw.rounded_rectangle((tx+8,row_y-2,tx+table_w-8,row_y+row_h-6),radius=14,
-                                   fill=(35,105,170,165))
-        centered_text(draw,position+".",tx+44,row_y+row_h/2,font(40,True),(255,255,255,255))
+            draw.rounded_rectangle((tx+8,ry-2,tx+table_w-8,ry+71),radius=14,fill=(35,105,170,165))
+        centered_text(draw,position+".",tx+44,ry+38,font(40,True),(255,255,255,255))
         icon=team_icon(name,"soccer",(94,60))
-        if icon:
-            im.alpha_composite(icon,(tx+96,row_y+int(row_h/2-icon.height/2)))
-        team_name=display_name(name)
-        draw.text((tx+220,row_y+row_h/2),team_name,anchor="lm",
-                  font=fitted_font(draw,team_name,table_w-900,40,34),fill=(255,255,255,255))
+        if icon: im.alpha_composite(icon,(tx+96,ry+38-icon.height//2))
+        draw.text((tx+220,ry+38),display_name(name),anchor="lm",
+                  font=fitted_font(draw,display_name(name),table_w-900,40,34),fill=(255,255,255,255))
         for cx,value in zip(col_x,[wins,draws,losses,gd,points]):
-            centered_text(draw,str(value),cx,row_y+row_h/2,font(40,True),(255,255,255,255))
+            centered_text(draw,str(value),cx,ry+38,font(40,True),(255,255,255,255))
     return im
+
 
 def draw_centered_panel(im,events,show_standings,competition_label):
     if not events:
@@ -531,59 +607,58 @@ def draw_centered_panel(im,events,show_standings,competition_label):
 
     if show_standings:
         stand_y=y+card_h+gap
-        im=draw_standings_panel(im,x,stand_y,card_w,standings_h,competition_label)
+        im=draw_standings_panel(im,x,stand_y,card_w,standings_h,competition_label,
+                                sport=events[0]["sport"])
     return im
 
 def main():
+    global DISPLAY_DATE
     errors=[]
-    competition_label="NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4"
     try:
-        last,next_games,bcomp=bosnia()
-        competition_label=bcomp or competition_label
-        soccer_events=date_window_events(last,next_games,"soccer")
-    except Exception as exc:
-        soccer_events=[]
-        errors.append("Bosnia: "+str(exc))
+        with open("preview.json",encoding="utf-8") as source: preview=json.load(source)
+        expires=datetime.fromisoformat(preview["expires_at"])
+        if expires.tzinfo is None: expires=expires.replace(tzinfo=TZ)
+        if datetime.now(TZ)<expires:
+            DISPLAY_DATE=date.fromisoformat(preview["as_of"])
+            print(f"Preview date active: {DISPLAY_DATE}")
+    except (OSError,ValueError,KeyError,TypeError): pass
+    competition_label="NATIONS LEAGUE • LEAGUE B • GROUP B4"
     try:
-        last,next_games,rphase=raptors()
-        nba_events=date_window_events(last,next_games,"nba")
-    except Exception as exc:
-        nba_events=[]
-        errors.append("Raptors: "+str(exc))
+        bl,bn,bcomp=bosnia(); competition_label=bcomp or competition_label
+        soccer_events=date_window_events(bl,bn,"soccer")
+    except Exception as e:
+        soccer_events=[]; errors.append("Bosnia: "+str(e))
+    try:
+        rl,rn,rphase=raptors(); nba_events=date_window_events(rl,rn,"nba")
+        for event in nba_events: event["phase"]=rphase
+    except Exception as e:
+        nba_events=[]; errors.append("Raptors: "+str(e))
     events=soccer_events+nba_events
-    # Prefer today's events; when there are none, show tomorrow's before
-    # falling back to yesterday's final result.
     if events:
-        preferred_day=next(
-            (offset for offset in (0,1,-1)
-             if any(event["day_offset"]==offset for event in events)),
-            events[0]["day_offset"]
-        )
+        preferred_day=next((offset for offset in (0,1,-1)
+                            if any(event["day_offset"]==offset for event in events)),events[0]["day_offset"])
         events=[event for event in events if event["day_offset"]==preferred_day]
-    show_standings=any(
-        event["sport"]=="soccer" and event["day_offset"]==0
-        for event in events
-    )
+    standings_sport=None
+    if any(event["sport"]=="soccer" and event["day_offset"]==0 for event in events):
+        standings_sport="soccer"; competition_label=bcomp or "NATIONS LEAGUE • GROUP B4"
+    elif any(event["sport"]=="nba" and event["day_offset"] in (0,1) for event in events):
+        standings_sport="nba"; competition_label="PRESEASON • EAST • ESPN LIVE"
+    show_standings=standings_sport is not None
+    if standings_sport=="nba" and not standings_data("nba"): show_standings=False
     im=background().convert("RGBA")
-    shade=Image.new("RGBA",(W,H),(0,0,0,26))
+    shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,26))
     im=Image.alpha_composite(im,shade)
-    if events:
-        im=draw_centered_panel(im,events,show_standings,competition_label)
-    elif errors:
-        print("No games in the three-day display window. "+" | ".join(errors))
+    if events: im=draw_centered_panel(im,events,show_standings,competition_label)
+    elif errors: print("No games in the three-day display window. "+" | ".join(errors))
     im.convert("RGB").save("wallpaper.jpg","JPEG",quality=96,optimize=True,progressive=True)
-
     version=datetime.now(TZ).strftime("%Y%m%d")
     digest=hashlib.sha256(open("wallpaper.jpg","rb").read()).hexdigest()[:12]
-    feed=[{
-        "location":"Shield Sports",
-        "title":"Bosnia & Raptors Daily Wallpaper",
-        "url_img":f"https://stakemillion3-star.github.io/shield-wallpaper/wallpaper.jpg?v={version}-{digest}"
-    }]
+    feed=[{"location":"Shield Sports","title":"Bosnia & Raptors Daily Wallpaper",
+           "url_img":f"https://stakemillion3-star.github.io/shield-wallpaper/wallpaper.jpg?v={version}-{digest}"}]
     with open("p.json","w",encoding="utf-8") as output:
-        json.dump(feed,output,ensure_ascii=False,indent=2)
-        output.write("\n")
+        json.dump(feed,output,ensure_ascii=False,indent=2); output.write("\n")
+
 
 if __name__=="__main__":
     main()
