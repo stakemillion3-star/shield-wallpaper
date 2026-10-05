@@ -646,48 +646,52 @@ def fitted_font(draw,text,max_width,initial=44,minimum=32):
 def draw_event_row(im,draw,event,x,y,w,row_h):
     soccer=event["sport"]=="soccer"
     accent=(80,170,255,255) if soccer else (255,80,90,255)
-    left,right=event["teams"][0],event["teams"][1]
     phase=event.get("phase","NBA")
     league="NATIONS LEAGUE" if soccer else ("PRESEASON" if phase=="PRESEASON" else "NBA")
-    heading=league
-    centered_text(draw,heading,x+w/2,y+58,font(54,True),accent)
+    centered_text(draw,league,x+w/2,y+58,font(54,True),accent)
 
     if soccer:
         left,right=event["teams"][0],event["teams"][1]
-        matchup_mark="VS"
+        bosnia_away=any("bosnia" in team[0].lower() and str(team[2]).lower()=="away"
+                        for team in (left,right))
+        matchup_mark="@" if bosnia_away else "VS"
     else:
         left,right,matchup_mark=nba_display_teams(event)
     left_cx=x+w*0.245
     right_cx=x+w*0.755
     center_x=x+w/2
-    # Large, balanced team flags/logos in the same VS layout as the earlier copy.
-    icon_size=(540,300) if soccer else (310,310)
+
+    # Every event card uses the same icon field and the same typography,
+    # whether it is the upper card, lower card, or a centered single card.
+    icon_size=(450,300)
     icon_y=y+300
     left_icon=place_icon(im,left[0],event["sport"],left_cx,icon_y,icon_size)
     right_icon=place_icon(im,right[0],event["sport"],right_cx,icon_y,icon_size)
-    vs_x=center_x
+    mark_x=center_x
     if left_icon and right_icon:
-        vs_x=((left_cx+left_icon.width/2)+(right_cx-right_icon.width/2))/2
-    centered_text(draw,matchup_mark,vs_x,icon_y,font(105,True),(255,255,255,255))
+        mark_x=((left_cx+left_icon.width/2)+(right_cx-right_icon.width/2))/2
 
     left_name=display_name(left[0]).upper()
     right_name=display_name(right[0]).upper()
     centered_text(draw,left_name,left_cx,y+505,font(51,True),(248,248,250,255))
     centered_text(draw,right_name,right_cx,y+505,font(51,True),(248,248,250,255))
-    # ESPN sometimes sends placeholder 0 scores before kickoff; only show scores
-    # for live or completed games. Scheduled events always use VS.
+
+    # Scheduled games show VS/@; live and completed scores replace that mark.
+    # The event state occupies the same bottom line on every card.
     if event["completed"]:
-        score=f"{left[1] or '0'}  –  {right[1] or '0'}"
-        # Put the final score in the same centered position as VS, then keep
-        # the status at the bottom of the matchup card.
-        centered_text(draw,score,vs_x,icon_y,font(92,True),(255,255,255,255))
-        centered_text(draw,"FINAL",center_x,y+655,font(64,True),accent)
+        middle=f"{left[1] or '0'}  –  {right[1] or '0'}"
+        footer="FINAL"
+        footer_size=64
     elif event.get("state")=="in":
-        score=f"{left[1] or '0'}  –  {right[1] or '0'}"
-        centered_text(draw,score,center_x,y+625,font(72,True),(255,255,255,255))
-        centered_text(draw,"LIVE • TODAY",center_x,y+690,font(54,True),accent)
+        middle=f"{left[1] or '0'}  –  {right[1] or '0'}"
+        footer="LIVE • TODAY"
+        footer_size=64
     else:
-        centered_text(draw,event_time_label(event),center_x,y+655,font(64,True),accent)
+        middle=matchup_mark
+        footer=event_time_label(event)
+        footer_size=64
+    centered_text(draw,middle,mark_x,icon_y,font(105,True),(255,255,255,255))
+    centered_text(draw,footer,center_x,y+655,font(footer_size,True),accent)
 
 def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
     im=panel(im,(x,y,x+w,y+h),194); draw=ImageDraw.Draw(im)
@@ -734,69 +738,28 @@ def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
 def draw_centered_panel(im,events,show_standings,competition_label):
     if not events:
         return im
-    # The lower slot has the same footprint whether it holds standings,
-    # TOMORROW, or LAST RESULT, so the layout only changes content over time.
+    # All matchup cards have one fixed footprint. The group is centered as
+    # a whole, with a uniform gap between each matchup and standings panel.
     card_w=2500
     card_h=740
-    secondary_h=450 if len(events)>1 else 0
+    card_count=min(len(events),2)
     standings_h=450 if show_standings else 0
     gap=22
-    layer_gaps=(int(secondary_h>0)+int(standings_h>0))*gap
-    group_h=card_h+secondary_h+standings_h+layer_gaps
+    group_h=card_count*card_h+standings_h+gap*(card_count-1+int(show_standings))
     x=(W-card_w)//2
-    safe_top,safe_bottom=260,1840
-    y=max(safe_top,(safe_top+safe_bottom-group_h)//2+65)
-    im=panel(im,(x,y,x+card_w,y+card_h),194)
-    draw=ImageDraw.Draw(im)
-    draw_event_row(im,draw,events[0],x+70,y+8,card_w-140,card_h-16)
+    y=max(60,(H-group_h)//2)
 
-    next_y=y+card_h
-    if secondary_h:
-        next_y+=gap
-        im=panel(im,(x,next_y,x+card_w,next_y+secondary_h),194)
+    for index,event in enumerate(events[:card_count]):
+        panel_y=y+index*(card_h+gap)
+        im=panel(im,(x,panel_y,x+card_w,panel_y+card_h),194)
         draw=ImageDraw.Draw(im)
-        event=events[1]
-        accent=(80,170,255,255) if event["sport"]=="soccer" else (255,80,90,255)
-        if event["sport"]=="nba":
-            if event["kind"]=="LAST RESULT":
-                heading=""
-                detail="FINAL"
-            else:
-                heading="NBA"
-                detail=event_time_label(event)
-            left,right,matchup_mark=nba_display_teams(event)
-        else:
-            if event["kind"]=="LAST RESULT":
-                heading=""
-                detail="FINAL"
-            else:
-                heading="NEXT MATCH"
-                detail=event_time_label(event)
-            left,right=event["teams"][:2]
-            matchup_mark="VS"
-        centered_text(draw,heading,W/2,next_y+56,font(40,True),accent)
-        left_cx=x+card_w*0.245
-        right_cx=x+card_w*0.755
-        icon_size=(190,125) if event["sport"]=="soccer" else (145,145)
-        icon_y=next_y+205
-        place_icon(im,left[0],event["sport"],left_cx,icon_y,icon_size)
-        place_icon(im,right[0],event["sport"],right_cx,icon_y,icon_size)
-        if event["completed"] or event.get("state")=="in":
-            score=f"{left[1] or '0'} – {right[1] or '0'}"
-            centered_text(draw,score,W/2,icon_y,font(60,True),(255,255,255,255))
-        else:
-            centered_text(draw,matchup_mark,W/2,icon_y,font(56,True),(255,255,255,255))
-        centered_text(draw,display_name(left[0]).upper(),left_cx,next_y+307,font(32,True),(248,248,250,255))
-        centered_text(draw,display_name(right[0]).upper(),right_cx,next_y+307,font(32,True),(248,248,250,255))
-        centered_text(draw,detail,W/2,next_y+380,font(36,True),accent)
-        next_y+=secondary_h
+        draw_event_row(im,draw,event,x+70,panel_y+8,card_w-140,card_h-16)
 
     if show_standings:
-        stand_y=next_y+gap
+        stand_y=y+card_count*card_h+gap*(card_count-1+1)
         im=draw_standings_panel(im,x,stand_y,card_w,standings_h,competition_label,
                                 sport=events[0]["sport"])
     return im
-
 
 def main():
     global DISPLAY_DATE
