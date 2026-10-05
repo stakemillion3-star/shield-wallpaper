@@ -285,7 +285,7 @@ def main():
     # TEMPORARY: visible marker for the user's Projectivy refresh test.
     d=ImageDraw.Draw(im)
     cx,cy,radius=W//2,220,82
-    d.ellipse((cx-radius,cy-radius,cx+radius,cy+radius),fill=(60,245,140,255),outline=(255,255,255,255),width=8)
+    d.ellipse((cx-radius,cy-radius,cx+radius,cy+radius),fill=(185,90,255,255),outline=(255,255,255,255),width=8)
     d.ellipse((cx-32,cy-27,cx-17,cy-12),fill=(10,20,35,255))
     d.ellipse((cx+17,cy-27,cx+32,cy-12),fill=(10,20,35,255))
     d.arc((cx-38,cy-14,cx+38,cy+48),start=15,end=165,fill=(10,20,35,255),width=9)
