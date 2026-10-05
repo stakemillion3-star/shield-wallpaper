@@ -430,76 +430,106 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     accent=(80,170,255,255) if soccer else (255,80,90,255)
     left,right=event["teams"][0],event["teams"][1]
     league="NATIONS LEAGUE" if soccer else "NBA"
-    centered_text(draw,league+"  •  "+event["kind"],x+w/2,y+23,font(29,True),accent)
-    left_icon_x=x+w*0.16
-    left_name_x=x+w*0.335
+    heading=league if soccer else league+"  •  "+event["kind"]
+    centered_text(draw,heading,x+w/2,y+58,font(54,True),accent)
+
+    left_cx=x+w*0.245
+    right_cx=x+w*0.755
     center_x=x+w/2
-    right_name_x=x+w*0.665
-    right_icon_x=x+w*0.84
-    icon_size=(220,145) if soccer else (175,175)
-    place_icon(im,left[0],event["sport"],left_icon_x,y+91,icon_size)
-    place_icon(im,right[0],event["sport"],right_icon_x,y+91,icon_size)
+    # Large, balanced team flags/logos in the same VS layout as the earlier copy.
+    icon_size=(540,300) if soccer else (310,310)
+    icon_y=y+300
+    left_icon=place_icon(im,left[0],event["sport"],left_cx,icon_y,icon_size)
+    right_icon=place_icon(im,right[0],event["sport"],right_cx,icon_y,icon_size)
+    vs_x=center_x
+    if left_icon and right_icon:
+        vs_x=((left_cx+left_icon.width/2)+(right_cx-right_icon.width/2))/2
+    centered_text(draw,"VS",vs_x,icon_y,font(105,True),(255,255,255,255))
+
     left_name=display_name(left[0]).upper()
     right_name=display_name(right[0]).upper()
-    draw.text((left_name_x,y+91),left_name,anchor="mm",
-              font=fitted_font(draw,left_name,620),fill=(248,248,250,255))
-    draw.text((right_name_x,y+91),right_name,anchor="mm",
-              font=fitted_font(draw,right_name,620),fill=(248,248,250,255))
-    if left[1] is not None and right[1] is not None:
-        score=f"{left[1]}  –  {right[1]}"
+    centered_text(draw,left_name,left_cx,y+535,font(51,True),(248,248,250,255))
+    centered_text(draw,right_name,right_cx,y+535,font(51,True),(248,248,250,255))
+    # ESPN sometimes sends placeholder 0 scores before kickoff; only show scores
+    # for live or completed games. Scheduled events always use VS.
+    if event["completed"]:
+        score=f"{left[1] or '0'}  –  {right[1] or '0'}"
+        centered_text(draw,score,center_x,y+655,font(72,True),(255,255,255,255))
+        time_y=y+738
+    elif event.get("state")=="in":
+        score=f"{left[1] or '0'}  –  {right[1] or '0'}"
+        centered_text(draw,score,center_x,y+655,font(72,True),(255,255,255,255))
+        time_y=y+738
     else:
-        score="VS"
-    centered_text(draw,score,center_x,y+91,font(80,True),(255,255,255,255))
-    centered_text(draw,event_time_label(event),center_x,y+151,font(34,True),accent)
+        time_y=y+655
+    centered_text(draw,event_time_label(event),center_x,time_y,font(56,True),accent)
 
-def draw_standings_inline(im,draw,x,y,w,accent,label):
-    centered_text(draw,label,x+w/2,y+28,font(35,True),accent)
-    col_x=[x+w-540,x+w-430,x+w-320,x+w-205,x+w-75]
-    for heading,cx in zip(["W","D","L","GD","PTS"],col_x):
-        centered_text(draw,heading,cx,y+75,font(30,True),(235,238,244,255))
+def draw_standings_panel(im,x,y,w,h,competition_label):
+    im=panel(im,(x,y,x+w,y+h),194)
+    draw=ImageDraw.Draw(im)
+    accent=(80,170,255,255)
+    centered_text(draw,competition_label,x+w/2,y+58,font(44,True),accent)
     rows=standings_data("soccer")
-    row_start=y+108
-    row_h=64
+    table_w=min(w-150,2320)
+    tx=x+(w-table_w)//2
+    col_x=[tx+table_w-575,tx+table_w-455,tx+table_w-335,tx+table_w-205,tx+table_w-65]
+    for heading,cx in zip(["W","D","L","GD","PTS"],col_x):
+        centered_text(draw,heading,cx,y+125,font(37,True),(235,238,244,255))
+    row_start=y+183
+    row_h=77
     for index,(position,name,played,wins,draws,losses,gd,points) in enumerate(rows):
         row_y=row_start+index*row_h
         if "Bosnia" in name:
-            draw.rounded_rectangle((x+8,row_y-1,x+w-8,row_y+59),radius=10,
+            draw.rounded_rectangle((tx+8,row_y-2,tx+table_w-8,row_y+row_h-6),radius=14,
                                    fill=(35,105,170,165))
-        centered_text(draw,position+".",x+35,row_y+29,font(35,True),(255,255,255,255))
-        icon=team_icon(name,"soccer",(78,50))
+        centered_text(draw,position+".",tx+44,row_y+row_h/2,font(40,True),(255,255,255,255))
+        icon=team_icon(name,"soccer",(94,60))
         if icon:
-            im.alpha_composite(icon,(x+75,row_y+29-icon.height//2))
+            im.alpha_composite(icon,(tx+96,row_y+int(row_h/2-icon.height/2)))
         team_name=display_name(name)
-        draw.text((x+176,row_y+29),team_name,anchor="lm",
-                  font=fitted_font(draw,team_name,w-820,35,30),fill=(255,255,255,255))
+        draw.text((tx+220,row_y+row_h/2),team_name,anchor="lm",
+                  font=fitted_font(draw,team_name,table_w-900,40,34),fill=(255,255,255,255))
         for cx,value in zip(col_x,[wins,draws,losses,gd,points]):
-            centered_text(draw,str(value),cx,row_y+29,font(34,True),(255,255,255,255))
+            centered_text(draw,str(value),cx,row_y+row_h/2,font(40,True),(255,255,255,255))
+    return im
 
 def draw_centered_panel(im,events,show_standings,competition_label):
     if not events:
         return im
     events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
-    panel_w=2840
-    row_h=184
-    standings_h=382 if show_standings else 0
-    extra_gap=20 if show_standings else 0
-    panel_h=52+len(events)*row_h+standings_h+extra_gap+32
-    x=(W-panel_w)//2
-    # Keep the whole group centered in the safe area above Projectivy's app row.
-    safe_top,safe_bottom=250,1850
-    y=max(safe_top,(safe_top+safe_bottom-panel_h)//2)
-    im=panel(im,(x,y,x+panel_w,y+panel_h),194)
+    # One centered primary matchup card; its proportions are scaled down enough
+    # to retain the calm composition and open background of the final copy.
+    card_w=2860
+    card_h=850
+    x=(W-card_w)//2
+    group_h=card_h+(34+430 if show_standings else 0)
+    safe_top,safe_bottom=260,1840
+    y=max(safe_top,(safe_top+safe_bottom-group_h)//2)
+    im=panel(im,(x,y,x+card_w,y+card_h),194)
     draw=ImageDraw.Draw(im)
-    row_y=y+30
-    for index,event in enumerate(events):
-        draw_event_row(im,draw,event,x+45,row_y,panel_w-90,row_h)
-        row_y+=row_h
-        if index<len(events)-1 or show_standings:
-            draw.line((x+85,row_y-1,x+panel_w-85,row_y-1),
-                      fill=(255,255,255,48),width=2)
+    draw_event_row(im,draw,events[0],x+70,y+8,card_w-140,card_h-16)
+
+    # Keep a second game visible only when it is also in the requested
+    # yesterday/today/tomorrow window, beneath the primary card.
+    if len(events)>1:
+        second_y=y+card_h+24
+        second_h=min(310, group_h-card_h-24)
+        im=panel(im,(x,second_y,x+card_w,second_y+second_h),194)
+        draw=ImageDraw.Draw(im)
+        event=events[1]
+        accent=(80,170,255,255) if event["sport"]=="soccer" else (255,80,90,255)
+        centered_text(draw,( "NATIONS LEAGUE" if event["sport"]=="soccer" else "NBA" )+"  •  "+event["kind"],
+                      W/2,second_y+45,font(36,True),accent)
+        left,right=event["teams"][:2]
+        place_icon(im,left[0],event["sport"],W*0.27,second_y+143,(220,125) if event["sport"]=="soccer" else (135,135))
+        place_icon(im,right[0],event["sport"],W*0.73,second_y+143,(220,125) if event["sport"]=="soccer" else (135,135))
+        centered_text(draw,"VS" if not event["completed"] and event.get("state")!="in" else f"{left[1]} – {right[1]}",
+                      W/2,second_y+140,font(48,True),(255,255,255,255))
+        centered_text(draw,event_time_label(event),W/2,second_y+254,font(35,True),accent)
+
     if show_standings:
-        draw_standings_inline(im,draw,x+170,row_y+extra_gap,panel_w-340,
-                              (80,170,255,255),competition_label)
+        stand_y=y+group_h-430
+        im=draw_standings_panel(im,x,stand_y,card_w,430,competition_label)
     return im
 
 def main():
@@ -519,6 +549,10 @@ def main():
         nba_events=[]
         errors.append("Raptors: "+str(exc))
     events=soccer_events+nba_events
+    # Keep the wallpaper focused on the nearest calendar day with an event.
+    if events:
+        nearest_day=min(event["day_offset"] for event in events)
+        events=[event for event in events if event["day_offset"]==nearest_day]
     show_standings=any(
         event["sport"]=="soccer" and event["day_offset"]==0
         for event in events
