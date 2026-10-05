@@ -577,23 +577,39 @@ def date_window_events(last,upcoming,sport):
         selected.append(item)
     return selected
 
-def regular_nba_event_stack(events):
+def regular_nba_event_stack(events, now=None):
+    # All transitions follow the user's Toronto calendar, including the
+    # noon cutoff for moving yesterday's result out of the compact card.
+    now=now or datetime.now(TZ)
+    before_noon=now.astimezone(TZ).hour<12
     active_today=[e for e in events if e["day_offset"]==0 and not e["completed"]]
     final_today=[e for e in events if e["day_offset"]==0 and e["completed"]]
     final_yesterday=[e for e in events if e["day_offset"]==-1 and e["completed"]]
     next_tomorrow=[e for e in events if e["day_offset"]==1 and not e["completed"]]
+
     if active_today:
-        return [active_today[0]]+([final_yesterday[-1]] if final_yesterday else [])
+        if final_yesterday:
+            if before_noon:
+                return [active_today[0],final_yesterday[-1]],False
+            return [active_today[0]],True
+        if next_tomorrow:
+            return [active_today[0],next_tomorrow[0]],False
+        return [active_today[0]],True
+
     if final_today:
-        # Keep tomorrow hidden until the calendar rolls over. At midnight the
-        # next fixture becomes TODAY and yesterday's completed game moves into
-        # the compact LAST RESULT card below it.
-        return [final_today[-1]]
+        if next_tomorrow:
+            # The next game takes the main card after today's result is final.
+            return [next_tomorrow[0],final_today[-1]],False
+        return [final_today[-1]],True
+
     if next_tomorrow:
-        return [next_tomorrow[0]]+([final_yesterday[-1]] if final_yesterday else [])
+        if final_yesterday and before_noon:
+            return [next_tomorrow[0],final_yesterday[-1]],False
+        return [next_tomorrow[0]],True
+
     if final_yesterday:
-        return [final_yesterday[-1]]
-    return []
+        return [final_yesterday[-1]],not before_noon
+    return [],False
 
 
 def event_time_label(event):
@@ -774,8 +790,9 @@ def main():
         for event in raw_nba_events: event["phase"]=rphase
         if rphase=="PRESEASON":
             nba_events=sorted(raw_nba_events,key=lambda event:event["date"])[:1]
+            nba_show_standings=False
         else:
-            nba_events=regular_nba_event_stack(raw_nba_events)
+            nba_events,nba_show_standings=regular_nba_event_stack(raw_nba_events)
     except Exception as e:
         nba_events=[]; errors.append("Raptors: "+str(e))
 
@@ -797,7 +814,7 @@ def main():
     if any(event["sport"]=="soccer" and event["day_offset"]==0 for event in events):
         standings_sport="soccer"
         competition_label=bcomp or "NATIONS LEAGUE • GROUP B4"
-    elif regular_nba and any(event["sport"]=="nba" for event in events):
+    elif regular_nba and nba_show_standings and any(event["sport"]=="nba" for event in events):
         standings_sport="nba"
         competition_label=""
     show_standings=standings_sport is not None
