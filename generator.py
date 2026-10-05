@@ -621,8 +621,9 @@ def regular_nba_event_stack(events, now=None):
             return [next_tomorrow[0],final_yesterday[-1]],False
         return [next_tomorrow[0]],True
 
-    if final_yesterday:
-        return [final_yesterday[-1]],not before_noon
+    # A completed game from the previous date is only retained when paired
+    # with a current/tomorrow game above. If the new date has no fixtures in
+    # the window, leave the wallpaper clear.
     return [],False
 
 
@@ -648,7 +649,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     left,right=event["teams"][0],event["teams"][1]
     phase=event.get("phase","NBA")
     league="NATIONS LEAGUE" if soccer else ("PRESEASON" if phase=="PRESEASON" else "NBA")
-    heading=league
+    heading="FINAL" if event["completed"] else league
     centered_text(draw,heading,x+w/2,y+58,font(54,True),accent)
 
     if soccer:
@@ -677,15 +678,14 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     # for live or completed games. Scheduled events always use VS.
     if event["completed"]:
         score=f"{left[1] or '0'}  –  {right[1] or '0'}"
-        centered_text(draw,score,center_x,y+655,font(72,True),(255,255,255,255))
-        time_y=y+738
+        centered_text(draw,score,center_x,y+625,font(72,True),(255,255,255,255))
+        centered_text(draw,"FINAL",center_x,y+690,font(54,True),accent)
     elif event.get("state")=="in":
         score=f"{left[1] or '0'}  –  {right[1] or '0'}"
-        centered_text(draw,score,center_x,y+655,font(72,True),(255,255,255,255))
-        time_y=y+738
+        centered_text(draw,score,center_x,y+625,font(72,True),(255,255,255,255))
+        centered_text(draw,"LIVE • TODAY",center_x,y+690,font(54,True),accent)
     else:
-        time_y=y+655
-    centered_text(draw,event_time_label(event),center_x,time_y,font(64,True),accent)
+        centered_text(draw,event_time_label(event),center_x,y+655,font(64,True),accent)
 
 def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
     im=panel(im,(x,y,x+w,y+h),194); draw=ImageDraw.Draw(im)
@@ -757,16 +757,16 @@ def draw_centered_panel(im,events,show_standings,competition_label):
         accent=(80,170,255,255) if event["sport"]=="soccer" else (255,80,90,255)
         if event["sport"]=="nba":
             if event["kind"]=="LAST RESULT":
-                heading="LAST RESULT"
-                detail="YESTERDAY • FINAL" if event["day_offset"]==-1 else "FINAL"
+                heading=""
+                detail="FINAL"
             else:
                 heading="NBA"
                 detail=event_time_label(event)
             left,right,matchup_mark=nba_display_teams(event)
         else:
             if event["kind"]=="LAST RESULT":
-                heading="LAST RESULT"
-                detail="YESTERDAY • FINAL" if event["day_offset"]==-1 else "FINAL"
+                heading=""
+                detail="FINAL"
             else:
                 heading="NEXT MATCH"
                 detail=event_time_label(event)
@@ -813,7 +813,8 @@ def main():
     try:
         bl,bn,bcomp=bosnia()
         competition_label=bcomp or competition_label
-        soccer_events=date_window_events(bl,bn,"soccer")
+        soccer_events=[event for event in date_window_events(bl,bn,"soccer")
+                       if event["day_offset"] in (0,1)]
     except Exception as e:
         soccer_events=[]; errors.append("Bosnia: "+str(e))
 
@@ -835,13 +836,14 @@ def main():
     # selection used by the rest of the wallpaper.
     regular_nba=(rphase=="REGULAR SEASON")
     if regular_nba and not any(e["day_offset"]==0 for e in soccer_events):
-        events=nba_events
+        events=nba_events or soccer_events
     else:
         events=soccer_events+nba_events
         if events:
-            preferred_day=next((offset for offset in (0,1,-1)
-                                if any(e["day_offset"]==offset for e in events)),events[0]["day_offset"])
-            events=[event for event in events if event["day_offset"]==preferred_day]
+            preferred_day=next((offset for offset in (0,1)
+                                if any(e["day_offset"]==offset for e in events)),None)
+            events=([event for event in events if event["day_offset"]==preferred_day]
+                    if preferred_day is not None else [])
             events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
 
     standings_sport=None
