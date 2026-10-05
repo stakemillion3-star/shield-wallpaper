@@ -7,8 +7,8 @@ W,H=3840,2160
 TZ=ZoneInfo("America/Toronto")
 UA={"User-Agent":"Mozilla/5.0 shield-wallpaper/1.0"}
 
-def get(url):
-    r=requests.get(url,headers=UA,timeout=25); r.raise_for_status(); return r.json()
+def get(url,timeout=25):
+    r=requests.get(url,headers=UA,timeout=timeout); r.raise_for_status(); return r.json()
 
 def remote_image(url,size):
     try:
@@ -153,6 +153,80 @@ def matchup(e,with_score=False):
 def display_name(name):
     return "Bosna I Hercegovina" if name in ("Bosnia and Herzegovina","Bosnia & Herzegovina","Bosnia-Herzegovina","Bosnia") else name
 
+def group_standings_from_results():
+    # Rebuild B4 from all four teams' ESPN schedules as a fallback when the
+    # league table is late to reflect a completed match.
+    team_slugs={
+        "bosnia-herzegovina":"Bosnia and Herzegovina",
+        "sweden":"Sweden",
+        "poland":"Poland",
+        "romania":"Romania"
+    }
+    expected=set(team_slugs.values())
+    def canonical(name):
+        low=name.lower()
+        if "bosnia" in low:
+            return "Bosnia and Herzegovina"
+        for team in expected:
+            if team.lower()==low:
+                return team
+        return None
+    def fetch_schedule_for(slug):
+        url=f"https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/teams/{slug}/schedule?season=2026"
+        return slug,get(url,timeout=12)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        responses=list(pool.map(fetch_schedule_for,team_slugs))
+    games={}
+    teams_seen=set()
+    for slug,data in responses:
+        events=data.get("events",[])
+        own_team=team_slugs[slug]
+        if not any(any(canonical(t[0])==own_team for t in parse_event(e)["teams"]) for e in events if e.get("date")):
+            raise ValueError(f"ESPN schedule contained no fixtures for {own_team}")
+        teams_seen.add(own_team)
+        for event in events:
+            if not event.get("date"):
+                continue
+            parsed=parse_event(event)
+            if not parsed["completed"] or len(parsed["teams"])<2:
+                continue
+            home,away=parsed["teams"][0],parsed["teams"][1]
+            home_name,away_name=canonical(home[0]),canonical(away[0])
+            if home_name not in expected or away_name not in expected:
+                continue
+            try:
+                home_score,away_score=int(home[1]),int(away[1])
+            except (TypeError,ValueError):
+                continue
+            key=(parsed["date"].isoformat(),home_name,away_name)
+            games[key]=(home_name,away_name,home_score,away_score)
+    if teams_seen!=expected or not games:
+        raise ValueError("ESPN schedules did not provide a complete Group B4 results set")
+    table={name:{"played":0,"wins":0,"draws":0,"losses":0,"gf":0,"ga":0,"points":0}
+           for name in expected}
+    for home,away,hs,as_ in games.values():
+        table[home]["played"]+=1
+        table[away]["played"]+=1
+        table[home]["gf"]+=hs; table[home]["ga"]+=as_
+        table[away]["gf"]+=as_; table[away]["ga"]+=hs
+        if hs>as_:
+            table[home]["wins"]+=1; table[away]["losses"]+=1; table[home]["points"]+=3
+        elif hs<as_:
+            table[away]["wins"]+=1; table[home]["losses"]+=1; table[away]["points"]+=3
+        else:
+            table[home]["draws"]+=1; table[away]["draws"]+=1
+            table[home]["points"]+=1; table[away]["points"]+=1
+    ordered=sorted(table.items(),key=lambda item:(
+        item[1]["points"],item[1]["gf"]-item[1]["ga"],item[1]["gf"]),reverse=True)
+    rows=[]
+    for pos,(name,stats) in enumerate(ordered,1):
+        gd=stats["gf"]-stats["ga"]
+        rows.append((str(pos),name,str(stats["played"]),str(stats["wins"]),
+                     str(stats["draws"]),str(stats["losses"]),
+                     f"{gd:+d}",str(stats["points"])))
+    return rows
+
+
 def standings_data(sport):
     if sport!="soccer":
         return []
@@ -162,13 +236,14 @@ def standings_data(sport):
         ("3","Poland","3","1","1","1","+4","4"),
         ("4","Romania","3","0","0","3","-9","0")
     ]
+    live_rows=None
     try:
         # ESPN publishes soccer standings on the /apis/v2 route (not site/v2).
         data=get("https://site.api.espn.com/apis/v2/sports/soccer/uefa.nations/standings?season=2026")
         group=next((g for g in data.get("children",[])
                     if "b4" in (g.get("name","")+g.get("abbreviation","")).lower()),None)
         entries=(group or {}).get("standings",{}).get("entries",[])
-        rows=[]
+        parsed_rows=[]
         aliases={
             "gamesplayed":("gamesplayed","played"),
             "wins":("wins","win"),
@@ -198,16 +273,33 @@ def standings_data(sport):
             if not all((name,played,wins,draws,losses,gd,points)):
                 raise ValueError("ESPN standings row is missing a required table value")
             number=lambda value:int(str(value).replace("+","").replace(",",""))
-            rows.append(((number(points),number(gd),number(goals_for)),
-                         (name,played,wins,draws,losses,gd,points)))
+            parsed_rows.append(((number(points),number(gd),number(goals_for)),
+                                (name,played,wins,draws,losses,gd,points)))
         required={"Sweden","Bosnia and Herzegovina","Poland","Romania"}
-        if len(rows)!=4 or {r[1][0] for r in rows}!=required:
+        if len(parsed_rows)!=4 or {r[1][0] for r in parsed_rows}!=required:
             raise ValueError("ESPN did not return the four expected Group B4 teams")
-        rows.sort(key=lambda row:row[0],reverse=True)
-        print("Loaded live UEFA Nations League Group B4 standings from ESPN.")
-        return [(str(i),*row[1]) for i,row in enumerate(rows,1)]
+        parsed_rows.sort(key=lambda row:row[0],reverse=True)
+        live_rows=[(str(i),*row[1]) for i,row in enumerate(parsed_rows,1)]
     except Exception as exc:
-        print(f"ESPN Group B4 standings unavailable; using the bundled fallback table: {exc}")
+        print(f"ESPN Group B4 table endpoint unavailable: {exc}")
+
+    try:
+        result_rows=group_standings_from_results()
+        if live_rows:
+            live_by_team={row[1]:row[2:] for row in live_rows}
+            result_by_team={row[1]:row[2:] for row in result_rows}
+            if live_by_team!=result_by_team:
+                print("ESPN table is behind completed B4 scores; using standings rebuilt from final results.")
+            else:
+                print("ESPN Group B4 table matches the table rebuilt from final results.")
+        else:
+            print("ESPN Group B4 table rebuilt from completed team schedules.")
+        return result_rows
+    except Exception as exc:
+        if live_rows:
+            print(f"Group B4 result fallback unavailable; using ESPN table: {exc}")
+            return live_rows
+        print(f"Live Group B4 sources unavailable; using the bundled fallback table: {exc}")
         return fallback
 
 def centered_text(d,text,cx,cy,ft,fill):
