@@ -88,24 +88,43 @@ def raptors():
         except Exception: pass
     raise RuntimeError("Raptors schedule unavailable")
 
+NATIONS_EVENTS_CACHE=None
+
+def nations_events():
+    # One ESPN Nations League scoreboard snapshot feeds Bosnia's schedule and
+    # the Group B4 results-derived standings fallback.
+    global NATIONS_EVENTS_CACHE
+    if NATIONS_EVENTS_CACHE is None:
+        data=get(
+            "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/scoreboard"
+            "?dates=20260901-20261130&limit=1000",
+            timeout=20
+        )
+        NATIONS_EVENTS_CACHE=[
+            parse_event(event) for event in data.get("events",[]) if event.get("date")
+        ]
+        print(f"Loaded {len(NATIONS_EVENTS_CACHE)} UEFA Nations League events from ESPN scoreboard.")
+    return NATIONS_EVENTS_CACHE
+
 def bosnia():
-    # ESPN Nations League feed. Multiple identifiers are tried so a provider alias change does not silently invent data.
-    urls=[
-      "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/teams/bosnia-herzegovina/schedule",
-      "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/teams/458/schedule"]
-    for u in urls:
-        try:
-            last,nxt=fetch_schedule(u)
-            # Hard validation: never accept a feed unless every returned event is actually Bosnia.
-            all_events=([last] if last else [])+nxt
-            def is_bih(e):
-                if not e: return True
-                names=[t[0].lower() for t in e["teams"]]
-                return any(("bosnia" in n and "herzegovina" in n) for n in names)
-            if all_events and all(is_bih(e) for e in all_events):
-                return last,nxt,"NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4"
-        except Exception: pass
-    # Official UEFA 2026/27 B4 fixtures/results, used as a fail-closed fallback.
+    label="NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4"
+    try:
+        events=nations_events()
+        is_bosnia=lambda event:any(
+            "bosnia" in team[0].lower() and "herzegovina" in team[0].lower()
+            for team in event["teams"]
+        )
+        team_events=sorted((event for event in events if is_bosnia(event)),key=lambda e:e["date"])
+        now=datetime.now(TZ)
+        past=[event for event in team_events if event["completed"] and len(event["teams"])>=2]
+        future=[event for event in team_events if not event["completed"] and event["date"]>=now and len(event["teams"])>=2]
+        if past or future:
+            print(f"Using ESPN scoreboard for Bosnia: {len(past)} completed and {len(future)} upcoming fixtures.")
+            return (past[-1] if past else None),future[:3],label
+        print("ESPN scoreboard contained no usable Bosnia fixtures; using the bundled fallback schedule.")
+    except Exception as exc:
+        print(f"ESPN Bosnia scoreboard unavailable; using the bundled fallback schedule: {exc}")
+    # Official UEFA 2026/27 B4 fixtures/results, used only if ESPN is unavailable.
     # Times are 20:45 CET/CEST unless UEFA specifies otherwise; converted to Toronto.
     raw=[
       ("2026-09-25T20:45:00+02:00","Poland","Bosnia and Herzegovina","0","0",True),
@@ -119,8 +138,10 @@ def bosnia():
         dt=datetime.fromisoformat(ds).astimezone(TZ)
         ev.append({"date":dt,"state":"post" if done else "pre","completed":done,"detail":"",
                    "teams":[(a,sa,"home"),(b,sb,"away")],"name":f"{a} vs {b}"})
-    now=datetime.now(TZ); past=[e for e in ev if e["completed"]]; future=[e for e in ev if not e["completed"] and e["date"]>=now]
-    return (past[-1] if past else None),future[:3],"NATIONS LEAGUE  •  LEAGUE B  •  GROUP B4"
+    now=datetime.now(TZ)
+    past=[event for event in ev if event["completed"] and event["date"]<=now]
+    future=[event for event in ev if not event["completed"] and event["date"]>=now]
+    return (past[-1] if past else None),future[:3],label
 
 def background():
     p="assets/background.jpg"
@@ -155,42 +176,37 @@ def display_name(name):
     return "Bosna I Hercegovina" if name in ("Bosnia and Herzegovina","Bosnia & Herzegovina","Bosnia-Herzegovina","Bosnia") else name
 
 def group_standings_from_results():
-    # Rebuild B4 from completed ESPN Nations League scoreboard events when
-    # the published standings table has not caught up yet.
+    # Rebuild Group B4 from completed matches in the same ESPN feed used for
+    # Bosnia's last result and next match.
     expected={"Bosnia and Herzegovina","Sweden","Poland","Romania"}
     def canonical(name):
         low=name.lower()
-        if "bosnia" in low:
+        if "bosnia" in low and "herzegovina" in low:
             return "Bosnia and Herzegovina"
         for team in expected:
             if team.lower()==low:
                 return team
         return None
-    data=get(
-        "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/scoreboard"
-        "?dates=20260901-20261130&limit=1000",
-        timeout=15
-    )
-    events=data.get("events",[])
+    events=nations_events()
     games={}
     seen=set()
     for event in events:
-        if not event.get("date"):
+        if len(event["teams"])<2:
             continue
-        parsed=parse_event(event)
-        names=[canonical(team[0]) for team in parsed["teams"]]
+        home,away=event["teams"][0],event["teams"][1]
+        names=[canonical(home[0]),canonical(away[0])]
         seen.update(name for name in names if name)
-        if not parsed["completed"] or len(parsed["teams"])<2 or not all(names):
+        # Only matches between the four Group B4 teams contribute to this table.
+        if not event["completed"] or not all(names):
             continue
-        home,away=parsed["teams"][0],parsed["teams"][1]
         try:
             home_score,away_score=int(home[1]),int(away[1])
         except (TypeError,ValueError):
             continue
-        key=(parsed["date"].isoformat(),names[0],names[1])
+        key=(event["date"].isoformat(),names[0],names[1])
         games[key]=(names[0],names[1],home_score,away_score)
     if not events or not games or not expected.issubset(seen):
-        raise ValueError("ESPN scoreboard did not provide a complete B4 results set")
+        raise ValueError("ESPN scoreboard did not provide a complete Group B4 results set")
     table={name:{"played":0,"wins":0,"draws":0,"losses":0,"gf":0,"ga":0,"points":0}
            for name in expected}
     for home,away,hs,as_ in games.values():
@@ -211,8 +227,7 @@ def group_standings_from_results():
     for pos,(name,stats) in enumerate(ordered,1):
         gd=stats["gf"]-stats["ga"]
         rows.append((str(pos),name,str(stats["played"]),str(stats["wins"]),
-                     str(stats["draws"]),str(stats["losses"]),
-                     f"{gd:+d}",str(stats["points"])))
+                     str(stats["draws"]),str(stats["losses"]),f"{gd:+d}",str(stats["points"])))
     return rows
 
 def standings_data(sport):
@@ -344,86 +359,3 @@ def draw_upcoming(im,d,x,y,w,e,sport,accent):
     centered_text(d,fmt_date(e["date"]),cx,y+325,font(52,True),accent)
 
 
-def simple_standings(im,x,y,w,h,accent,competition_label):
-    im=panel(im,(x,y,x+w,y+h),194)
-    d=ImageDraw.Draw(im)
-    rows=standings_data("soccer")
-    centered_text(d,competition_label,x+w/2,y+38,font(42,True),accent)
-
-    col_x=[x+w-500,x+w-400,x+w-300,x+w-200,x+w-100]
-    labels=["W","D","L","GD","PTS"]
-    for label,cx in zip(labels,col_x):
-        centered_text(d,label,cx,y+90,font(36,True),(235,238,244,255))
-
-    row_start=y+120
-    row_h=72
-    for index,(pos,name,played,won,drawn,lost,gd,pts) in enumerate(rows):
-        row_y=row_start+index*row_h
-        if "Bosnia" in name:
-            d.rounded_rectangle((x+14,row_y-1,x+w-14,row_y+68),radius=12,fill=(35,105,170,165))
-        centered_text(d,pos+".",x+40,row_y+36,font(40,True),(255,255,255,255))
-        icon=team_icon(name,"soccer",(90,58))
-        if icon:
-            im.alpha_composite(icon,(x+82,row_y+36-icon.height//2))
-        d.text((x+205,row_y+36),display_name(name),anchor="lm",
-               font=font(42,True),fill=(255,255,255,255))
-        vals=[won,drawn,lost,gd,pts]
-        for cx,val in zip(col_x,vals):
-            centered_text(d,str(val),cx,row_y+36,font(40,True),(255,255,255,255))
-    return im
-
-
-def simple_section(im,x,y,w,title,last,nxt,accent,sport,status_label=None,competition_label=None):
-    h=840
-    im=panel(im,(x,y,x+w,y+h),194)
-    d=ImageDraw.Draw(im)
-    if status_label:
-        d.text((x+w-58,y+60),status_label,anchor="rm",font=font(34,True),fill=accent)
-
-    centered_text(d,"NEXT MATCH" if sport=="soccer" else "NEXT GAME",
-                  x+w/2,y+55,font(64,True),accent)
-    draw_upcoming(im,d,x+64,y+170,w-128,nxt[0] if nxt else None,sport,accent)
-    d.line((x+58,y+535,x+w-58,y+535),fill=accent,width=3)
-
-    centered_text(d,"LAST RESULT",x+w/2,y+580,font(40,True),(224,229,238,255))
-    draw_result(im,d,x+64,y+600,w-128,last,sport,accent)
-    return im
-
-
-def main():
-    errors=[]
-    try:
-        bl,bn,bcomp=bosnia()
-    except Exception as e:
-        bl,bn,bcomp=None,[],"—"; errors.append(str(e))
-    try:
-        rl,rn,rphase=raptors()
-    except Exception as e:
-        rl,rn,rphase=None,[],"—"; errors.append(str(e))
-    im=background().convert("RGBA")
-    shade=Image.new("RGBA",(W,H),(0,0,0,0))
-    ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,35))
-    im=Image.alpha_composite(im,shade)
-    im=simple_section(im,20,450,1890,"BOSNA I HERCEGOVINA",bl,bn,(80,170,255,255),"soccer",competition_label=bcomp)
-    im=simple_section(im,1930,450,1890,"TORONTO RAPTORS",rl,rn,(255,80,90,255),"nba",status_label=rphase)
-    im=simple_standings(im,45,1310,1840,430,(80,170,255,255),bcomp or "GROUP TABLE")
-    if errors:
-        d=ImageDraw.Draw(im)
-        d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
-    im.convert("RGB").save("wallpaper.jpg","JPEG",quality=96,optimize=True,progressive=True)
-
-    # Overflight wallpaper provider feed. Daily query values tell Projectivy
-    # a new image URI after each scheduled render, avoiding stale image caches.
-    version=datetime.now(TZ).strftime("%Y%m%d")
-    digest=hashlib.sha256(open("wallpaper.jpg","rb").read()).hexdigest()[:12]
-    feed=[{
-        "location":"Shield Sports",
-        "title":"Bosnia & Raptors Daily Wallpaper",
-        "url_img":f"https://stakemillion3-star.github.io/shield-wallpaper/wallpaper.jpg?v={version}-{digest}"
-    }]
-    with open("p.json","w",encoding="utf-8") as f:
-        json.dump(feed,f,ensure_ascii=False,indent=2)
-        f.write("\n")
-
-if __name__=="__main__":
-    main()
