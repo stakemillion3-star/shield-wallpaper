@@ -9,6 +9,7 @@ TZ=ZoneInfo("America/Toronto")
 UA={"User-Agent":"Mozilla/5.0 shield-wallpaper/1.0"}
 DISPLAY_DATE=None
 NBA_LOGOS={}
+NBA_STANDINGS_CACHE=None
 
 def get(url,timeout=25):
     r=requests.get(url,headers=UA,timeout=timeout); r.raise_for_status(); return r.json()
@@ -257,6 +258,9 @@ def group_standings_from_results():
     return rows
 
 def nba_standings_data():
+    global NBA_STANDINGS_CACHE
+    if NBA_STANDINGS_CACHE is not None:
+        return NBA_STANDINGS_CACHE
     # ESPN does not expose an NBA preseason standings table, so derive records
     # from completed preseason games on ESPN's daily scoreboard.
     season=datetime.now(TZ).year+1
@@ -318,6 +322,7 @@ def nba_standings_data():
                          "losses":rec["losses"],"pct":pct,"played":rec["played"]})
     toronto=next((row for row in rows if row["abbr"]=="TOR"),None)
     if not toronto:
+        NBA_STANDINGS_CACHE=[]
         raise ValueError("ESPN has not posted completed 2026 preseason scores for Toronto")
     rows.sort(key=lambda row:(-row["pct"],-row["wins"],row["losses"],row["name"]))
     leader=rows[0]
@@ -329,6 +334,7 @@ def nba_standings_data():
     leaders=rows[:4]
     if toronto not in leaders:
         leaders.append(toronto)
+    NBA_STANDINGS_CACHE=leaders
     print("ESPN preseason Eastern table:",[(r["rank"],r["name"],r["wins"],r["losses"],r["pct"],r["gb"]) for r in leaders])
     return leaders
 
