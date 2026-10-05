@@ -434,9 +434,9 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     left_name=display_name(left[0]).upper()
     right_name=display_name(right[0]).upper()
     draw.text((left_name_x,y+91),left_name,anchor="mm",
-              font=fitted_font(draw,left_name,620),(248,248,250,255))
+              font=fitted_font(draw,left_name,620),fill=(248,248,250,255))
     draw.text((right_name_x,y+91),right_name,anchor="mm",
-              font=fitted_font(draw,right_name,620),(248,248,250,255))
+              font=fitted_font(draw,right_name,620),fill=(248,248,250,255))
     if left[1] is not None and right[1] is not None:
         score=f"{left[1]}  –  {right[1]}"
     else:
@@ -463,7 +463,7 @@ def draw_standings_inline(im,draw,x,y,w,accent,label):
             im.alpha_composite(icon,(x+75,row_y+29-icon.height//2))
         team_name=display_name(name)
         draw.text((x+176,row_y+29),team_name,anchor="lm",
-                  font=fitted_font(draw,team_name,w-820,35,30),(255,255,255,255))
+                  font=fitted_font(draw,team_name,w-820,35,30),fill=(255,255,255,255))
         for cx,value in zip(col_x,[wins,draws,losses,gd,points]):
             centered_text(draw,str(value),cx,row_y+29,font(34,True),(255,255,255,255))
 
