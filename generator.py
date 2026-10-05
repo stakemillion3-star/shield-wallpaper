@@ -259,6 +259,7 @@ def group_standings_from_results():
 def nba_standings_data():
     # Read real 2026-27 preseason records directly from ESPN.
     data=get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/standings?season=2027&seasontype=1")
+    print("ESPN NBA preseason payload:",json.dumps(data)[:5000])
     east={"ATL","BOS","BKN","CHA","CHI","CLE","DET","IND","MIA","MIL","NY","ORL","PHI","TOR","WSH"}
     west={"DAL","DEN","GS","HOU","LAC","LAL","MEM","MIN","NO","OKC","PHX","POR","SAC","SA","UTAH"}
     found=[]
