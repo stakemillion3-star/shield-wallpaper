@@ -649,7 +649,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     left,right=event["teams"][0],event["teams"][1]
     phase=event.get("phase","NBA")
     league="NATIONS LEAGUE" if soccer else ("PRESEASON" if phase=="PRESEASON" else "NBA")
-    heading="FINAL" if event["completed"] else league
+    heading=league
     centered_text(draw,heading,x+w/2,y+58,font(54,True),accent)
 
     if soccer:
@@ -678,8 +678,10 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     # for live or completed games. Scheduled events always use VS.
     if event["completed"]:
         score=f"{left[1] or '0'}  –  {right[1] or '0'}"
-        centered_text(draw,score,center_x,y+625,font(72,True),(255,255,255,255))
-        centered_text(draw,"FINAL",center_x,y+690,font(54,True),accent)
+        # Put the final score in the same centered position as VS, then keep
+        # the status at the bottom of the matchup card.
+        centered_text(draw,score,vs_x,icon_y,font(92,True),(255,255,255,255))
+        centered_text(draw,"FINAL",center_x,y+655,font(64,True),accent)
     elif event.get("state")=="in":
         score=f"{left[1] or '0'}  –  {right[1] or '0'}"
         centered_text(draw,score,center_x,y+625,font(72,True),(255,255,255,255))
