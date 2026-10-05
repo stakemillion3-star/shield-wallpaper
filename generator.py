@@ -282,6 +282,14 @@ def main():
     if errors:
         d=ImageDraw.Draw(im)
         d.text((W//2,H-80),"DATA TEMPORARILY UNAVAILABLE",anchor="mm",font=font(28,True),fill=(220,220,220,180))
+    # TEMPORARY: visible marker for the user's Projectivy refresh test.
+    d=ImageDraw.Draw(im)
+    cx,cy,radius=W//2,220,82
+    d.ellipse((cx-radius,cy-radius,cx+radius,cy+radius),fill=(255,220,40,245),outline=(255,255,255,255),width=8)
+    d.ellipse((cx-32,cy-27,cx-17,cy-12),fill=(10,20,35,255))
+    d.ellipse((cx+17,cy-27,cx+32,cy-12),fill=(10,20,35,255))
+    d.arc((cx-38,cy-14,cx+38,cy+48),start=15,end=165,fill=(10,20,35,255),width=9)
+
     im.convert("RGB").save("wallpaper.jpg","JPEG",quality=96,optimize=True,progressive=True)
 
     # Overflight wallpaper provider feed. Daily query values tell Projectivy
