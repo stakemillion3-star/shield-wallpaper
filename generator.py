@@ -257,54 +257,68 @@ def group_standings_from_results():
     return rows
 
 def nba_standings_data():
-    # Read real 2026-27 preseason records directly from ESPN.
-    data=get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/standings?season=2027&seasontype=1")
-    print("ESPN NBA preseason payload:",json.dumps(data)[:5000])
-    east={"ATL","BOS","BKN","CHA","CHI","CLE","DET","IND","MIA","MIL","NY","ORL","PHI","TOR","WSH"}
-    west={"DAL","DEN","GS","HOU","LAC","LAL","MEM","MIN","NO","OKC","PHX","POR","SAC","SA","UTAH"}
-    found=[]
-    def walk(node,conf=None):
-        label=(str(node.get("name",""))+" "+str(node.get("abbreviation",""))).lower()
-        if "eastern conference" in label or label.strip().endswith(" east") or label=="east": conf="east"
-        elif "western conference" in label or label.strip().endswith(" west") or label=="west": conf="west"
-        elif any(x in label for x in ("atlantic division","central division","southeast division")): conf="east"
-        elif any(x in label for x in ("northwest division","pacific division","southwest division")): conf="west"
-        for entry in (node.get("standings") or {}).get("entries",[]):
-            team=entry.get("team") or {}; name=team.get("displayName") or team.get("name") or ""
+    # ESPN does not expose an NBA preseason standings table, so derive the
+    # records from ESPN's completed preseason scoreboard games.
+    season=datetime.now(TZ).year+1
+    start=f"{season-1}0901"
+    end=f"{season-1}1019"
+    url=(f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+         f"?dates={start}-{end}&seasontype=1&limit=500")
+    data=get(url)
+    east={"ATL","BOS","BKN","CHA","CHI","CLE","DET","IND","MIA","MIL","NY","NYK","ORL","PHI","TOR","WSH"}
+    records={}
+    for event in data.get("events",[]) or []:
+        comp=(event.get("competitions") or [{}])[0]
+        status=((event.get("status") or {}).get("type") or {})
+        if not status.get("completed"):
+            continue
+        competitors=comp.get("competitors") or []
+        if len(competitors)!=2:
+            continue
+        teams=[]
+        for competitor in competitors:
+            team=competitor.get("team") or {}
+            name=team.get("displayName") or team.get("name") or ""
             abbr=str(team.get("abbreviation","")).upper()
-            team_conf=conf or ("east" if abbr in east else "west" if abbr in west else None)
-            logos=team.get("logos") or []; logo=team.get("logo") or (logos[0].get("href") if logos else None)
-            if logo and name: NBA_LOGOS[name]=logo
-            stats={}
-            for stat in entry.get("stats",[]):
-                for key in (stat.get("name"),stat.get("abbreviation")):
-                    if key: stats[str(key).lower().replace("_","").replace(" ","")]=stat
-            def val(*keys):
-                for key in keys:
-                    stat=stats.get(key.lower().replace("_","").replace(" ",""))
-                    if stat: return str(stat.get("displayValue",stat.get("value","")))
-                return ""
-            wins=val("wins","win","w"); losses=val("losses","loss","l")
-            pct=val("winPercent","winpercentage","pct"); gb=val("gamesBehind","gb")
-            seed=val("playoffSeed","seed")
-            if name and team_conf=="east" and wins!="" and losses!="":
-                found.append({"name":name,"abbr":abbr,"wins":wins,"losses":losses,
-                    "pct":pct or "—","gb":gb or "—","seed":seed})
-        for child in node.get("children",[]) or []: walk(child,conf)
-    for group in data.get("children",[]) or []: walk(group)
-    if not found: walk(data)
-    toronto=next((r for r in found if r["abbr"]=="TOR" or "raptors" in r["name"].lower()),None)
-    if not toronto: raise ValueError("ESPN preseason Eastern standings not available")
-    def key(row):
-        try: return (0,int(row["seed"]))
-        except (ValueError,TypeError):
-            try: return (1,-float(row["pct"]),-int(row["wins"]))
-            except (ValueError,TypeError): return (2,found.index(row))
-    found.sort(key=key)
-    for i,row in enumerate(found,1): row["rank"]=row["seed"] or str(i)
-    result=found[:4]
-    if toronto not in result: result.append(toronto)
-    return result
+            score=competitor.get("score")
+            if isinstance(score,dict): score=score.get("displayValue",score.get("value"))
+            try: score=int(str(score).replace(",",""))
+            except (TypeError,ValueError): continue
+            teams.append((name,abbr,score,team))
+        if len(teams)!=2:
+            continue
+        for name,abbr,score,team in teams:
+            rec=records.setdefault(abbr,{"name":name,"played":0,"wins":0,"losses":0})
+            if abbr=="TOR" or name: 
+                logos=team.get("logos") or []
+                logo=team.get("logo") or (logos[0].get("href") if logos else None)
+                if logo: NBA_LOGOS[name]=logo
+        (home,away)=teams
+        records[home[1]]["played"]+=1
+        records[away[1]]["played"]+=1
+        if home[2]>away[2]: records[home[1]]["wins"]+=1; records[away[1]]["losses"]+=1
+        elif away[2]>home[2]: records[away[1]]["wins"]+=1; records[home[1]]["losses"]+=1
+    rows=[]
+    for abbr in east:
+        rec=records.get(abbr)
+        if rec:
+            pct=rec["wins"]/rec["played"] if rec["played"] else 0.0
+            rows.append({"name":rec["name"],"abbr":abbr,"wins":rec["wins"],"losses":rec["losses"],
+                         "pct":pct,"played":rec["played"]})
+    toronto=next((row for row in rows if row["abbr"]=="TOR"),None)
+    if not toronto:
+        raise ValueError("ESPN has not posted any completed 2026 preseason scores for Toronto")
+    rows.sort(key=lambda row:(-row["pct"],-row["wins"],row["losses"],row["name"]))
+    leader=rows[0]
+    for i,row in enumerate(rows,1):
+        row["rank"]=str(i)
+        row["pct"]=f"{row['pct']:.3f}".replace("0."," .").strip()
+        gb=((leader["wins"]-row["wins"])+(row["losses"]-leader["losses"]))/2
+        row["gb"]="—" if gb==0 else (str(int(gb)) if gb.is_integer() else f"{gb:.1f}")
+    leaders=rows[:4]
+    if toronto not in leaders: leaders.append(toronto)
+    print("ESPN preseason Eastern table:",[(r["rank"],r["name"],r["wins"],r["losses"],r["pct"],r["gb"]) for r in leaders])
+    return leaders
 
 
 def standings_data(sport):
