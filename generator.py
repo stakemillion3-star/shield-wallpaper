@@ -33,9 +33,18 @@ def team_icon(name,sport,size=(100,70)):
     if sport=="nba":
         url=NBA_LOGOS.get(name)
         if url:
-            return remote_image(url,size)
-        ab=TEAM_ABBR.get(name)
-        return remote_image(f"https://a.espncdn.com/i/teamlogos/nba/500/{ab}.png",size) if ab else None
+            icon=remote_image(url,size)
+        else:
+            ab=TEAM_ABBR.get(name)
+            icon=remote_image(f"https://a.espncdn.com/i/teamlogos/nba/500/{ab}.png",size) if ab else None
+        if icon and name=="Toronto Raptors":
+            pixels=icon.load()
+            for py in range(icon.height):
+                for px in range(icon.width):
+                    r,g,b,a=pixels[px,py]
+                    if a and max(r,g,b)<110:
+                        pixels[px,py]=(int(r*0.45),int(g*0.45),int(b*0.45),a)
+        return icon
     cc=COUNTRY_CODE.get(name)
     if not cc and "bosnia" in name.lower():
         cc="ba"
@@ -81,7 +90,7 @@ def nba_phase(last,nxt):
     if "playoff" in details or "finals" in details: return "PLAYOFFS"
     # NBA's 2026-27 regular season starts Oct 20 league-wide; Toronto opens Oct 21.
     now=datetime.now(TZ)
-    if now < datetime(2026,10,18,tzinfo=TZ): return "PRESEASON"
+    if now < datetime(2026,10,20,tzinfo=TZ): return "PRESEASON"
     return "REGULAR SEASON"
 
 def raptors():
@@ -604,8 +613,9 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     soccer=event["sport"]=="soccer"
     accent=(80,170,255,255) if soccer else (255,80,90,255)
     left,right=event["teams"][0],event["teams"][1]
-    league="NATIONS LEAGUE" if soccer else event.get("phase","NBA")
-    heading=league if soccer else (league if league=="PRESEASON" else league+"  •  "+event["kind"])
+    phase=event.get("phase","NBA")
+    league="NATIONS LEAGUE" if soccer else ("PRESEASON" if phase=="PRESEASON" else "NBA")
+    heading=league if soccer or league=="PRESEASON" else league+"  •  "+event["kind"]
     centered_text(draw,heading,x+w/2,y+58,font(54,True),accent)
 
     left_cx=x+w*0.245
@@ -652,7 +662,8 @@ def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
         for i,row in enumerate(rows):
             ry=row_start+i*slot_h+(slot_h-row_h)//2
             if row["abbr"]=="TOR" or "raptors" in row["name"].lower():
-                draw.rounded_rectangle((x+22,ry-2,x+w-22,ry+row_h-4),radius=12,fill=(150,32,45,185))
+                draw.rounded_rectangle((x+22,ry-2,x+w-22,ry+row_h-4),radius=12,
+                                       fill=(76,8,18,232),outline=(255,92,104,150),width=2)
             centered_text(draw,row["rank"]+".",x+64,ry+row_h/2,font(32,True),(255,255,255,255))
             icon=team_icon(row["name"],"nba",(38,38))
             if icon: im.alpha_composite(icon,(x+104,ry+int(row_h/2-icon.height/2)))
@@ -737,9 +748,10 @@ def main():
     errors=[]
     try:
         with open("preview.json",encoding="utf-8") as source: preview=json.load(source)
-        expires=datetime.fromisoformat(preview["expires_at"])
-        if expires.tzinfo is None: expires=expires.replace(tzinfo=TZ)
-        if datetime.now(TZ)<expires:
+        expires_raw=preview.get("expires_at")
+        expires=datetime.fromisoformat(expires_raw) if expires_raw else None
+        if expires and expires.tzinfo is None: expires=expires.replace(tzinfo=TZ)
+        if not expires or datetime.now(TZ)<expires:
             DISPLAY_DATE=date.fromisoformat(preview["as_of"])
             print(f"Preview date active: {DISPLAY_DATE}")
     except (OSError,ValueError,KeyError,TypeError): pass
