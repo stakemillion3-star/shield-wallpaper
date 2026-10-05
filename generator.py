@@ -713,11 +713,11 @@ def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
 def draw_centered_panel(im,events,show_standings,competition_label):
     if not events:
         return im
-    # The primary matchup stays full-size. An adjacent result or next game
-    # uses a compact row, with standings below both during the regular season.
+    # The lower slot has the same footprint whether it holds standings,
+    # TOMORROW, or LAST RESULT, so the layout only changes content over time.
     card_w=2500
     card_h=740
-    secondary_h=300 if len(events)>1 else 0
+    secondary_h=450 if len(events)>1 else 0
     standings_h=450 if show_standings else 0
     gap=22
     layer_gaps=(int(secondary_h>0)+int(standings_h>0))*gap
@@ -736,23 +736,31 @@ def draw_centered_panel(im,events,show_standings,competition_label):
         draw=ImageDraw.Draw(im)
         event=events[1]
         accent=(80,170,255,255) if event["sport"]=="soccer" else (255,80,90,255)
-        heading="LAST RESULT" if event["kind"]=="LAST RESULT" else (
-            "NEXT MATCH" if event["sport"]=="soccer" else "NEXT GAME")
-        centered_text(draw,heading,W/2,next_y+38,font(34,True),accent)
+        if event["sport"]=="nba" and event["day_offset"]==1 and not event["completed"]:
+            heading="TOMORROW"
+            detail=event["date"].astimezone(TZ).strftime("%-I:%M %p")
+        elif event["kind"]=="LAST RESULT":
+            heading="LAST RESULT"
+            detail="YESTERDAY • FINAL" if event["day_offset"]==-1 else "FINAL"
+        else:
+            heading="NEXT MATCH" if event["sport"]=="soccer" else "NEXT GAME"
+            detail=event_time_label(event)
+        centered_text(draw,heading,W/2,next_y+56,font(40,True),accent)
         left,right=event["teams"][:2]
         left_cx=x+card_w*0.245
         right_cx=x+card_w*0.755
-        icon_size=(180,115) if event["sport"]=="soccer" else (115,115)
-        place_icon(im,left[0],event["sport"],left_cx,next_y+132,icon_size)
-        place_icon(im,right[0],event["sport"],right_cx,next_y+132,icon_size)
+        icon_size=(190,125) if event["sport"]=="soccer" else (145,145)
+        icon_y=next_y+205
+        place_icon(im,left[0],event["sport"],left_cx,icon_y,icon_size)
+        place_icon(im,right[0],event["sport"],right_cx,icon_y,icon_size)
         if event["completed"] or event.get("state")=="in":
             score=f"{left[1] or '0'} – {right[1] or '0'}"
-            centered_text(draw,score,W/2,next_y+132,font(56,True),(255,255,255,255))
+            centered_text(draw,score,W/2,icon_y,font(60,True),(255,255,255,255))
         else:
-            centered_text(draw,"VS",W/2,next_y+132,font(52,True),(255,255,255,255))
-        centered_text(draw,display_name(left[0]).upper(),left_cx,next_y+220,font(30,True),(248,248,250,255))
-        centered_text(draw,display_name(right[0]).upper(),right_cx,next_y+220,font(30,True),(248,248,250,255))
-        centered_text(draw,event_time_label(event),W/2,next_y+270,font(32,True),accent)
+            centered_text(draw,"VS",W/2,icon_y,font(56,True),(255,255,255,255))
+        centered_text(draw,display_name(left[0]).upper(),left_cx,next_y+307,font(32,True),(248,248,250,255))
+        centered_text(draw,display_name(right[0]).upper(),right_cx,next_y+307,font(32,True),(248,248,250,255))
+        centered_text(draw,detail,W/2,next_y+380,font(36,True),accent)
         next_y+=secondary_h
 
     if show_standings:
