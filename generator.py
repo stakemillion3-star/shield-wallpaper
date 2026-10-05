@@ -464,7 +464,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
         time_y=y+738
     else:
         time_y=y+655
-    centered_text(draw,event_time_label(event),center_x,time_y,font(64,True),(255,255,255,255))
+    centered_text(draw,event_time_label(event),center_x,time_y,font(64,True),accent)
 
 def draw_standings_panel(im,x,y,w,h,competition_label):
     im=panel(im,(x,y,x+w,y+h),194)
@@ -568,6 +568,8 @@ def main():
     shade=Image.new("RGBA",(W,H),(0,0,0,26))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,26))
     im=Image.alpha_composite(im,shade)
+    # Subtle dock behind the launcher row, matching the sports panels.
+    im=panel(im,(180,1900,3660,2110),194)
     if events:
         im=draw_centered_panel(im,events,show_standings,competition_label)
     elif errors:
