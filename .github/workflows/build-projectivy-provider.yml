@@ -22,7 +22,7 @@ jobs:
         run: python3 projectivy-provider/prepare_provider.py "$RUNNER_TEMP/projectivy-provider"
       - name: Build Android TV APK
         working-directory: ${{ runner.temp }}/projectivy-provider
-        run: ./gradlew :sample:assembleDebug --no-daemon
+        run: bash ./gradlew :sample:assembleDebug --no-daemon
       - name: Publish APK in the repository
         run: |
           mkdir -p downloads
