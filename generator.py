@@ -173,7 +173,7 @@ def group_standings_from_results():
                 return team
         return None
     def fetch_schedule_for(slug):
-        url=f"https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/teams/{slug}/schedule?season=2026"
+        url=f"https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/teams/{slug}/schedule"
         return slug,get(url,timeout=12)
     with ThreadPoolExecutor(max_workers=4) as pool:
         responses=list(pool.map(fetch_schedule_for,team_slugs))
