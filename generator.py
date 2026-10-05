@@ -90,20 +90,28 @@ def raptors():
 
 NATIONS_EVENTS_CACHE=None
 
+NATIONS_EVENTS_CACHE=None
+
 def nations_events():
-    # One ESPN Nations League scoreboard snapshot feeds Bosnia's schedule and
-    # the Group B4 results-derived standings fallback.
+    # ESPN's competition scoreboard rejects broad date ranges here, so fetch
+    # each scheduled Group B4 matchday and combine the returned events.
     global NATIONS_EVENTS_CACHE
     if NATIONS_EVENTS_CACHE is None:
-        data=get(
-            "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/scoreboard"
-            "?dates=20260901-20261130&limit=1000",
-            timeout=20
-        )
-        NATIONS_EVENTS_CACHE=[
-            parse_event(event) for event in data.get("events",[]) if event.get("date")
-        ]
-        print(f"Loaded {len(NATIONS_EVENTS_CACHE)} UEFA Nations League events from ESPN scoreboard.")
+        matchdays=("20260925","20260928","20261002","20261005","20261114","20261117")
+        events={}
+        for matchday in matchdays:
+            data=get(
+                "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/scoreboard"
+                f"?dates={matchday}",
+                timeout=20
+            )
+            for raw_event in data.get("events",[]):
+                if raw_event.get("date"):
+                    parsed=parse_event(raw_event)
+                    key=(parsed["date"].isoformat(),parsed["name"])
+                    events[key]=parsed
+        NATIONS_EVENTS_CACHE=sorted(events.values(),key=lambda event:event["date"])
+        print(f"Loaded {len(NATIONS_EVENTS_CACHE)} Nations League scoreboard events for Group B4 matchdays.")
     return NATIONS_EVENTS_CACHE
 
 def bosnia():
