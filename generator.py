@@ -207,7 +207,7 @@ def standings_data(sport):
         print("Loaded live UEFA Nations League Group B4 standings from ESPN.")
         return [(str(i),*row[1]) for i,row in enumerate(rows,1)]
     except Exception as exc:
-        print(f"ESPN Group B4 standings unavailable; using the last known table: {exc}")
+        print(f"ESPN Group B4 standings unavailable; using the bundled fallback table: {exc}")
         return fallback
 
 def centered_text(d,text,cx,cy,ft,fill):
