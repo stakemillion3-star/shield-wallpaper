@@ -257,15 +257,77 @@ def group_standings_from_results():
                      str(stats["draws"]),str(stats["losses"]),f"{gd:+d}",str(stats["points"])))
     return rows
 
+def nba_regular_standings_data(season):
+    data=get(f"https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season={season}")
+    east={"ATL","BOS","BKN","CHA","CHI","CLE","DET","IND","MIA","MIL","NY","NYK","ORL","PHI","TOR","WSH"}
+    rows=[]
+    def walk(node,conf=None):
+        label=(str(node.get("name",""))+" "+str(node.get("abbreviation",""))).lower()
+        if "eastern conference" in label or label.strip().endswith(" east") or label=="east": conf="east"
+        elif "western conference" in label or label.strip().endswith(" west") or label=="west": conf="west"
+        elif any(x in label for x in ("atlantic division","central division","southeast division")): conf="east"
+        elif any(x in label for x in ("northwest division","pacific division","southwest division")): conf="west"
+        for entry in (node.get("standings") or {}).get("entries",[]):
+            team=entry.get("team") or {}
+            name=team.get("displayName") or team.get("name") or ""
+            abbr=str(team.get("abbreviation","")).upper()
+            team_conf=conf or ("east" if abbr in east else "west" if abbr else None)
+            stats={}
+            for stat in entry.get("stats",[]):
+                for key in (stat.get("name"),stat.get("abbreviation")):
+                    if key: stats[str(key).lower().replace("_","").replace(" ","")]=stat
+            def val(*keys):
+                for key in keys:
+                    stat=stats.get(key.lower().replace("_","").replace(" ",""))
+                    if stat: return str(stat.get("displayValue",stat.get("value","")))
+                return ""
+            wins=val("wins","win","w"); losses=val("losses","loss","l")
+            pct=val("winPercent","winpercentage","pct"); gb=val("gamesBehind","gb")
+            seed=val("playoffSeed","seed")
+            logos=team.get("logos") or []
+            logo=team.get("logo") or (logos[0].get("href") if logos else None)
+            if logo and name: NBA_LOGOS[name]=logo
+            if team_conf=="east" and name and wins!="" and losses!="":
+                try: numeric_seed=int(seed) if seed else 99
+                except ValueError: numeric_seed=99
+                try: numeric_pct=float(pct)
+                except (ValueError,TypeError): numeric_pct=float(wins)/(float(wins)+float(losses)) if float(wins)+float(losses) else 0
+                rows.append({"name":name,"abbr":abbr,"wins":wins,"losses":losses,
+                             "pct":pct or f"{numeric_pct:.3f}","gb":gb,"seed":numeric_seed})
+        for child in node.get("children",[]) or []: walk(child,conf)
+    for group in data.get("children",[]) or []: walk(group)
+    if not rows: walk(data)
+    if len(rows)<10 or not any(row["abbr"]=="TOR" for row in rows):
+        raise ValueError("ESPN regular-season Eastern standings are incomplete")
+    rows.sort(key=lambda row:(row["seed"],row["name"]))
+    leader=rows[0]
+    for i,row in enumerate(rows,1):
+        row["rank"]=str(row["seed"] if row["seed"]<99 else i)
+        if row["pct"].startswith("0."): row["pct"]=row["pct"][1:]
+        if not row["gb"]:
+            gb=((int(leader["wins"])-int(row["wins"]))+(int(row["losses"])-int(leader["losses"])))/2
+            row["gb"]="—" if gb==0 else f"{gb:.1f}"
+    return rows
+
+
 def nba_standings_data():
     global NBA_STANDINGS_CACHE
     if NBA_STANDINGS_CACHE is not None:
         return NBA_STANDINGS_CACHE
     # ESPN does not expose an NBA preseason standings table, so derive records
     # from completed preseason games on ESPN's daily scoreboard.
-    season=datetime.now(TZ).year+1
+    today=datetime.now(TZ).date()
+    season=today.year+(1 if today.month>=7 else 0)
+    if today>=datetime(season-1,10,20,tzinfo=TZ).date():
+        rows=nba_regular_standings_data(season)
+        toronto=next(row for row in rows if row["abbr"]=="TOR")
+        toronto_index=rows.index(toronto)
+        start=max(0,min(toronto_index-3,len(rows)-4))
+        NBA_STANDINGS_CACHE=rows[start:start+4]
+        print("ESPN regular-season Eastern table:",[(r["rank"],r["name"],r["wins"],r["losses"],r["pct"],r["gb"]) for r in NBA_STANDINGS_CACHE])
+        return NBA_STANDINGS_CACHE
     start_date=datetime(season-1,9,15,tzinfo=TZ).date()
-    end_date=min(datetime.now(TZ).date(),datetime(season-1,10,19,tzinfo=TZ).date())
+    end_date=min(today,datetime(season-1,10,19,tzinfo=TZ).date())
     dates=[(start_date+__import__("datetime").timedelta(days=i)).strftime("%Y%m%d")
            for i in range((end_date-start_date).days+1)]
     urls=[f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={day}&seasontype=1&limit=100"
