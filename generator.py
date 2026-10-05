@@ -1,7 +1,7 @@
 import hashlib, io, json, os, requests
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 W,H=3840,2160
 TZ=ZoneInfo("America/Toronto")
@@ -124,24 +124,8 @@ def bosnia():
 def background():
     p="assets/background.jpg"
     if os.path.exists(p):
-        im=Image.open(p).convert("RGB").resize((W,H),Image.Resampling.LANCZOS)
-        # Keep the sky, flags and landmarks vivid; gently calm only the lower
-        # water and rocks where the background is most visually busy.
-        top=1300
-        fade=220
-        region=im.crop((0,top,W,H))
-        toned=ImageEnhance.Color(region).enhance(0.78)
-        toned=ImageEnhance.Contrast(toned).enhance(0.90)
-        toned=ImageEnhance.Brightness(toned).enhance(0.97)
-        mask=Image.new("L",(1,H-top))
-        for yy in range(H-top):
-            t=min(1.0,yy/max(1,fade))
-            strength=t*t*(3-2*t)
-            mask.putpixel((0,yy),int(255*strength))
-        mask=mask.resize(region.size,Image.Resampling.BILINEAR)
-        region=Image.composite(toned,region,mask)
-        im.paste(region,(0,top))
-        return im
+        im=Image.open(p).convert("RGB")
+        return im.resize((W,H),Image.Resampling.LANCZOS)
     # Safe fallback until the cinematic background asset is added.
     im=Image.new("RGB",(W,H))
     px=im.load()
