@@ -501,7 +501,7 @@ def draw_centered_panel(im,events,show_standings,competition_label):
     events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
     # One centered primary matchup card; its proportions are scaled down enough
     # to retain the calm composition and open background of the final copy.
-    card_w=2020
+    card_w=2500
     card_h=740
     standings_h=520 if show_standings else 0
     gap=22 if show_standings else 0
