@@ -61,7 +61,8 @@ def fetch_schedule(url):
     events=[parse_event(e) for e in data.get("events",[]) if e.get("date")]
     events.sort(key=lambda x:x["date"])
     now=datetime.now(TZ)
-    past=[e for e in events if e["completed"] or e["date"]<now]
+    # Only count events explicitly marked completed by the provider as a final result.
+    past=[e for e in events if e["completed"]]
     future=[e for e in events if not e["completed"] and e["date"]>=now]
     return (past[-1] if past else None), future[:3]
 
@@ -193,7 +194,7 @@ def draw_result(im,d,x,y,w,e,sport,accent):
 def draw_upcoming(im,d,x,y,w,e,sport,accent):
     cx=x+w/2
     if not e or len(e["teams"])<2:
-        centered_text(d,"SCHEDULE UNAVAILABLE",cx,y+260,font(44,True),(230,234,240,255))
+        centered_text(d,"UPCOMING • TBD",cx,y+260,font(52,True),(230,234,240,255))
         return
     left,right=e["teams"][0],e["teams"][1]
     left_cx=x+w*0.245
