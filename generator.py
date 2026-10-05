@@ -257,66 +257,78 @@ def group_standings_from_results():
     return rows
 
 def nba_standings_data():
-    # ESPN does not expose an NBA preseason standings table, so derive the
-    # records from ESPN's completed preseason scoreboard games.
+    # ESPN does not expose an NBA preseason standings table, so derive records
+    # from completed preseason games on ESPN's daily scoreboard.
     season=datetime.now(TZ).year+1
-    start=f"{season-1}0901"
-    end=f"{season-1}1019"
-    url=(f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
-         f"?dates={start}-{end}&seasontype=1&limit=500")
-    data=get(url)
+    start_date=datetime(season-1,9,15,tzinfo=TZ).date()
+    end_date=min(datetime.now(TZ).date(),datetime(season-1,10,19,tzinfo=TZ).date())
+    dates=[(start_date+__import__("datetime").timedelta(days=i)).strftime("%Y%m%d")
+           for i in range((end_date-start_date).days+1)]
+    urls=[f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={day}&seasontype=1&limit=100"
+          for day in dates]
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        scoreboards=list(pool.map(get,urls))
     east={"ATL","BOS","BKN","CHA","CHI","CLE","DET","IND","MIA","MIL","NY","NYK","ORL","PHI","TOR","WSH"}
     records={}
-    for event in data.get("events",[]) or []:
-        comp=(event.get("competitions") or [{}])[0]
-        status=((event.get("status") or {}).get("type") or {})
-        if not status.get("completed"):
-            continue
-        competitors=comp.get("competitors") or []
-        if len(competitors)!=2:
-            continue
-        teams=[]
-        for competitor in competitors:
-            team=competitor.get("team") or {}
-            name=team.get("displayName") or team.get("name") or ""
-            abbr=str(team.get("abbreviation","")).upper()
-            score=competitor.get("score")
-            if isinstance(score,dict): score=score.get("displayValue",score.get("value"))
-            try: score=int(str(score).replace(",",""))
-            except (TypeError,ValueError): continue
-            teams.append((name,abbr,score,team))
-        if len(teams)!=2:
-            continue
-        for name,abbr,score,team in teams:
-            rec=records.setdefault(abbr,{"name":name,"played":0,"wins":0,"losses":0})
-            if abbr=="TOR" or name: 
+    for data in scoreboards:
+        for event in data.get("events",[]) or []:
+            comp=(event.get("competitions") or [{}])[0]
+            status=((event.get("status") or {}).get("type") or {})
+            if not status.get("completed"):
+                continue
+            competitors=comp.get("competitors") or []
+            if len(competitors)!=2:
+                continue
+            teams=[]
+            for competitor in competitors:
+                team=competitor.get("team") or {}
+                name=team.get("displayName") or team.get("name") or ""
+                abbr=str(team.get("abbreviation","")).upper()
+                score=competitor.get("score")
+                if isinstance(score,dict):
+                    score=score.get("displayValue",score.get("value"))
+                try:
+                    score=int(str(score).replace(",",""))
+                except (TypeError,ValueError):
+                    continue
+                teams.append((name,abbr,score,team))
+            if len(teams)!=2:
+                continue
+            for name,abbr,score,team in teams:
+                records.setdefault(abbr,{"name":name,"played":0,"wins":0,"losses":0})
                 logos=team.get("logos") or []
                 logo=team.get("logo") or (logos[0].get("href") if logos else None)
-                if logo: NBA_LOGOS[name]=logo
-        (home,away)=teams
-        records[home[1]]["played"]+=1
-        records[away[1]]["played"]+=1
-        if home[2]>away[2]: records[home[1]]["wins"]+=1; records[away[1]]["losses"]+=1
-        elif away[2]>home[2]: records[away[1]]["wins"]+=1; records[home[1]]["losses"]+=1
+                if logo and name:
+                    NBA_LOGOS[name]=logo
+            home,away=teams
+            records[home[1]]["played"]+=1
+            records[away[1]]["played"]+=1
+            if home[2]>away[2]:
+                records[home[1]]["wins"]+=1
+                records[away[1]]["losses"]+=1
+            elif away[2]>home[2]:
+                records[away[1]]["wins"]+=1
+                records[home[1]]["losses"]+=1
     rows=[]
     for abbr in east:
         rec=records.get(abbr)
         if rec:
             pct=rec["wins"]/rec["played"] if rec["played"] else 0.0
-            rows.append({"name":rec["name"],"abbr":abbr,"wins":rec["wins"],"losses":rec["losses"],
-                         "pct":pct,"played":rec["played"]})
+            rows.append({"name":rec["name"],"abbr":abbr,"wins":rec["wins"],
+                         "losses":rec["losses"],"pct":pct,"played":rec["played"]})
     toronto=next((row for row in rows if row["abbr"]=="TOR"),None)
     if not toronto:
-        raise ValueError("ESPN has not posted any completed 2026 preseason scores for Toronto")
+        raise ValueError("ESPN has not posted completed 2026 preseason scores for Toronto")
     rows.sort(key=lambda row:(-row["pct"],-row["wins"],row["losses"],row["name"]))
     leader=rows[0]
     for i,row in enumerate(rows,1):
         row["rank"]=str(i)
-        row["pct"]=f"{row['pct']:.3f}".replace("0."," .").strip()
+        row["pct"]=f"{row['pct']:.3f}"[1:] if row["pct"]<1 else f"{row['pct']:.3f}"
         gb=((leader["wins"]-row["wins"])+(row["losses"]-leader["losses"]))/2
         row["gb"]="—" if gb==0 else (str(int(gb)) if gb.is_integer() else f"{gb:.1f}")
     leaders=rows[:4]
-    if toronto not in leaders: leaders.append(toronto)
+    if toronto not in leaders:
+        leaders.append(toronto)
     print("ESPN preseason Eastern table:",[(r["rank"],r["name"],r["wins"],r["losses"],r["pct"],r["gb"]) for r in leaders])
     return leaders
 
