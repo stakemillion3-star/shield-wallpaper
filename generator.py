@@ -629,9 +629,10 @@ def regular_nba_event_stack(events, now=None):
             return [next_tomorrow[0],final_yesterday[-1]],False
         return [next_tomorrow[0]],True
 
-    # A completed game from the previous date is only retained when paired
-    # with a current/tomorrow game above. If the new date has no fixtures in
-    # the window, leave the wallpaper clear.
+    # Keep yesterday's final result and regular-season standings through
+    # noon when there is no current or next-day game to show.
+    if final_yesterday:
+        return ([final_yesterday[-1]],True) if before_noon else ([],False)
     return [],False
 
 
@@ -786,8 +787,11 @@ def main():
     try:
         bl,bn,bcomp=bosnia()
         competition_label=bcomp or competition_label
+        local_now=datetime.now(TZ)
+        before_noon=local_now.hour<12
         soccer_events=[event for event in date_window_events(bl,bn,"soccer")
-                       if event["day_offset"] in (0,1)]
+                       if event["day_offset"] in (0,1)
+                       or (event["day_offset"]==-1 and before_noon)]
     except Exception as e:
         soccer_events=[]; errors.append("Bosnia: "+str(e))
 
@@ -797,7 +801,17 @@ def main():
         raw_nba_events=date_window_events(rl,rn,"nba")
         for event in raw_nba_events: event["phase"]=rphase
         if rphase=="PRESEASON":
-            nba_events=sorted(raw_nba_events,key=lambda event:event["date"])[:1]
+            local_now=datetime.now(TZ)
+            before_noon=local_now.hour<12
+            candidates=[
+                [e for e in raw_nba_events if e["day_offset"]==0 and not e["completed"]],
+                [e for e in raw_nba_events if e["day_offset"]==1 and not e["completed"]],
+                [e for e in raw_nba_events if e["day_offset"]==0 and e["completed"]],
+                [e for e in raw_nba_events if e["day_offset"]==-1 and e["completed"]]
+                    if before_noon else []
+            ]
+            nba_events=next((sorted(group,key=lambda event:event["date"])[:1]
+                             for group in candidates if group),[])
             nba_show_standings=False
         else:
             nba_events,nba_show_standings=regular_nba_event_stack(raw_nba_events)
@@ -815,12 +829,23 @@ def main():
         if events:
             preferred_day=next((offset for offset in (0,1)
                                 if any(e["day_offset"]==offset for e in events)),None)
-            events=([event for event in events if event["day_offset"]==preferred_day]
-                    if preferred_day is not None else [])
+            if preferred_day is not None:
+                events=[event for event in events if event["day_offset"]==preferred_day]
+            elif datetime.now(TZ).hour<12:
+                events=[event for event in events
+                        if event["day_offset"]==-1 and event["completed"]]
+            else:
+                events=[]
             events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
 
     standings_sport=None
-    if any(event["sport"]=="soccer" and event["day_offset"]==0 for event in events):
+    keep_soccer_standings=(
+        datetime.now(TZ).hour<12
+        and any(event["sport"]=="soccer" and event["day_offset"]==-1
+                and event["completed"] for event in events)
+    )
+    if (any(event["sport"]=="soccer" and event["day_offset"]==0 for event in events)
+            or keep_soccer_standings):
         standings_sport="soccer"
         competition_label=bcomp or "NATIONS LEAGUE • GROUP B4"
     elif regular_nba and nba_show_standings and any(event["sport"]=="nba" for event in events):
