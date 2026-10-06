@@ -649,6 +649,27 @@ def event_time_label(event):
         return "LIVE • TODAY"
     return fmt_date(event["date"])
 
+def soccer_live_label(event):
+    raw=str(event.get("clock") or event.get("detail") or "").strip()
+    if not raw:
+        return "LIVE • TODAY"
+    token=raw.replace("′","'").replace("’","'").split()[0]
+    token=token.replace("'","")
+    minute_part=token.split(":",1)[0]
+    if "+" in minute_part:
+        minute_part=minute_part.split("+",1)[0]
+        try:
+            minute=int(minute_part)
+            return f"{minute}'+ • LIVE"
+        except ValueError:
+            return "LIVE • TODAY"
+    try:
+        minute=int(minute_part)
+        rounded=(minute//5)*5
+        return f"{rounded}' • LIVE"
+    except ValueError:
+        return "LIVE • TODAY"
+
 def nba_live_detail(event):
     detail=str(event.get("detail") or "").strip()
     lower=detail.lower()
@@ -726,7 +747,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
             centered_text(draw,nba_live_detail(event),mark_x,icon_y+88,
                           font(52,True),accent)
         else:
-            centered_text(draw,"LIVE • TODAY",center_x,y+655,font(64,True),accent)
+            centered_text(draw,soccer_live_label(event),center_x,y+655,font(64,True),accent)
     else:
         centered_text(draw,matchup_mark,mark_x,icon_y,font(105,True),(255,255,255,255))
         centered_text(draw,event_time_label(event),center_x,y+655,font(64,True),accent)
