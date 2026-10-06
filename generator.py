@@ -687,7 +687,8 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     accent=(80,170,255,255) if soccer else (255,80,90,255)
     phase=event.get("phase","NBA")
     league="NATIONS LEAGUE" if soccer else ("PRESEASON" if phase=="PRESEASON" else "NBA")
-    centered_text(draw,league,x+w/2,y+58,font(54,True),accent)
+    heading="LAST RESULT" if event["completed"] else league
+    centered_text(draw,heading,x+w/2,y+58,font(54,True),accent)
 
     if soccer:
         left,right=event["teams"][0],event["teams"][1]
@@ -723,7 +724,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
         centered_text(draw,middle,mark_x,icon_y,font(105,True),(255,255,255,255))
         if event["sport"]=="nba":
             centered_text(draw,nba_live_detail(event),mark_x,icon_y+88,
-                          font(52,True),(255,255,255,255))
+                          font(52,True),accent)
         else:
             centered_text(draw,"LIVE • TODAY",center_x,y+655,font(64,True),accent)
     else:
