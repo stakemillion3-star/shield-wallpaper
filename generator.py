@@ -77,9 +77,12 @@ def parse_event(e):
                       c.get("score",{}).get("displayValue") if isinstance(c.get("score"),dict) else c.get("score"),
                       c.get("homeAway")))
     dt=datetime.fromisoformat(e["date"].replace("Z","+00:00")).astimezone(TZ)
-    status=(e.get("status") or {}).get("type") or {}
+    status_data=e.get("status") or {}
+    status=status_data.get("type") or {}
     return {"date":dt,"state":status.get("state"),"completed":status.get("completed",False),
-            "detail":status.get("shortDetail") or status.get("detail") or "","teams":names,
+            "detail":status.get("shortDetail") or status.get("detail") or "",
+            "clock":status_data.get("displayClock") or status_data.get("clockDisplayValue") or "",
+            "period":status_data.get("period"),"teams":names,
             "name":e.get("shortName") or e.get("name") or ""}
 
 def fetch_schedule(url):
@@ -646,6 +649,33 @@ def event_time_label(event):
         return "LIVE • TODAY"
     return fmt_date(event["date"])
 
+def nba_live_detail(event):
+    detail=str(event.get("detail") or "").strip()
+    lower=detail.lower()
+    if "half" in lower:
+        return "HALFTIME"
+    ordinals=("1st","2nd","3rd","4th")
+    if "end" in lower or "complete" in lower:
+        for index,ordinal in enumerate(ordinals,1):
+            if ordinal in lower:
+                return f"END {index}Q"
+    period=event.get("period")
+    clock=str(event.get("clock") or "").strip()
+    try:
+        period=int(period)
+    except (TypeError,ValueError):
+        period=None
+    if period and 1<=period<=4 and clock:
+        return f"{clock} {period}Q"
+    # Use ESPN's text status as a fallback if structured clock fields are absent.
+    tokens=lower.replace("–"," ").replace("-"," ").split()
+    clock_token=next((token for token in tokens if ":" in token),None)
+    if clock_token:
+        for index,ordinal in enumerate(ordinals,1):
+            if ordinal in lower:
+                return f"{clock_token} {index}Q"
+    return "LIVE"
+
 def fitted_font(draw,text,max_width,initial=44,minimum=32):
     size=initial
     while size>minimum and draw.textbbox((0,0),text,font=font(size,True))[2]>max_width:
@@ -670,8 +700,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     right_cx=x+w*0.755
     center_x=x+w/2
 
-    # Every event card uses the same icon field and the same typography,
-    # whether it is the upper card, lower card, or a centered single card.
+    # All event cards use the same icon field, regardless of sport or position.
     icon_size=(600,300)
     icon_y=y+300
     left_icon=place_icon(im,left[0],event["sport"],left_cx,icon_y,icon_size)
@@ -685,22 +714,21 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     centered_text(draw,left_name,left_cx,y+505,font(51,True),(248,248,250,255))
     centered_text(draw,right_name,right_cx,y+505,font(51,True),(248,248,250,255))
 
-    # Scheduled games show VS/@; live and completed scores replace that mark.
-    # The event state occupies the same bottom line on every card.
     if event["completed"]:
         middle=f"{left[1] or '0'}  –  {right[1] or '0'}"
-        footer="FINAL"
-        footer_size=64
+        centered_text(draw,middle,mark_x,icon_y,font(105,True),(255,255,255,255))
+        centered_text(draw,"FINAL",center_x,y+655,font(64,True),accent)
     elif event.get("state")=="in":
         middle=f"{left[1] or '0'}  –  {right[1] or '0'}"
-        footer="LIVE • TODAY"
-        footer_size=64
+        centered_text(draw,middle,mark_x,icon_y,font(105,True),(255,255,255,255))
+        if event["sport"]=="nba":
+            centered_text(draw,nba_live_detail(event),mark_x,icon_y+88,
+                          font(52,True),(255,255,255,255))
+        else:
+            centered_text(draw,"LIVE • TODAY",center_x,y+655,font(64,True),accent)
     else:
-        middle=matchup_mark
-        footer=event_time_label(event)
-        footer_size=64
-    centered_text(draw,middle,mark_x,icon_y,font(105,True),(255,255,255,255))
-    centered_text(draw,footer,center_x,y+655,font(footer_size,True),accent)
+        centered_text(draw,matchup_mark,mark_x,icon_y,font(105,True),(255,255,255,255))
+        centered_text(draw,event_time_label(event),center_x,y+655,font(64,True),accent)
 
 def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
     im=panel(im,(x,y,x+w,y+h),194); draw=ImageDraw.Draw(im)
