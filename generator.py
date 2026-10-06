@@ -208,8 +208,9 @@ def fmt_date(dt):
         return "TOMORROW • "+local.strftime("%-I:%M %p")
     if delta==-1:
         return "YESTERDAY • FINAL"
+    if 2<=delta<=7:
+        return local.strftime("%A • %-I:%M %p").upper()
     return local.strftime("%a %b %d • %-I:%M %p")
-
 
 def matchup(e,with_score=False):
     if not e:return "—"
@@ -571,7 +572,6 @@ def draw_upcoming(im,d,x,y,w,e,sport,accent):
 
 def date_window_events(last,upcoming,sport):
     today=DISPLAY_DATE or datetime.now(TZ).date()
-    now=datetime.now(TZ)
     candidates=([last] if last else [])+(upcoming or [])
     selected=[]
     seen=set()
@@ -580,11 +580,11 @@ def date_window_events(last,upcoming,sport):
             continue
         local_date=event["date"].astimezone(TZ).date()
         offset=(local_date-today).days
-        if offset not in (-1,0,1):
+        if offset not in (-1,0,1,2,3,4,5,6,7):
             continue
         if offset==-1 and not event["completed"]:
             continue
-        if offset==1 and event["completed"]:
+        if offset>0 and event["completed"]:
             continue
         key=(sport,event["date"].isoformat(),tuple(team[0] for team in event["teams"]))
         if key in seen:
@@ -840,7 +840,7 @@ def main():
         local_now=datetime.now(TZ)
         before_noon=local_now.hour<12
         soccer_events=[event for event in date_window_events(bl,bn,"soccer")
-                       if event["day_offset"] in (0,1)
+                       if event["day_offset"] in (0,1,2,3,4,5,6,7)
                        or (event["day_offset"]==-1 and before_noon)]
     except Exception as e:
         soccer_events=[]; errors.append("Bosnia: "+str(e))
@@ -858,13 +858,21 @@ def main():
                 [e for e in raw_nba_events if e["day_offset"]==1 and not e["completed"]],
                 [e for e in raw_nba_events if e["day_offset"]==0 and e["completed"]],
                 [e for e in raw_nba_events if e["day_offset"]==-1 and e["completed"]]
-                    if before_noon else []
+                    if before_noon else [],
+                [e for e in raw_nba_events
+                 if 2<=e["day_offset"]<=7 and not e["completed"]]
             ]
             nba_events=next((sorted(group,key=lambda event:event["date"])[:1]
                              for group in candidates if group),[])
             nba_show_standings=False
         else:
             nba_events,nba_show_standings=regular_nba_event_stack(raw_nba_events)
+            if not nba_events:
+                week_games=[event for event in raw_nba_events
+                            if 2<=event["day_offset"]<=7 and not event["completed"]]
+                if week_games:
+                    nba_events=[min(week_games,key=lambda event:event["date"])]
+                    nba_show_standings=False
     except Exception as e:
         nba_events=[]; errors.append("Raptors: "+str(e))
 
@@ -872,8 +880,14 @@ def main():
     # If a same-day Bosnia fixture exists, retain the shared multi-sport day
     # selection used by the rest of the wallpaper.
     regular_nba=(rphase=="REGULAR SEASON")
-    if regular_nba and not any(e["day_offset"]==0 for e in soccer_events):
-        events=nba_events or soccer_events
+    preserve_nba_stack=(
+        regular_nba
+        and not any(e["day_offset"]==0 for e in soccer_events)
+        and bool(nba_events)
+        and any(e["day_offset"] in (0,1) for e in nba_events)
+    )
+    if preserve_nba_stack:
+        events=nba_events
     else:
         events=soccer_events+nba_events
         if events:
@@ -882,10 +896,13 @@ def main():
             if preferred_day is not None:
                 events=[event for event in events if event["day_offset"]==preferred_day]
             elif datetime.now(TZ).hour<12:
-                events=[event for event in events
-                        if event["day_offset"]==-1 and event["completed"]]
+                yesterday=[event for event in events
+                            if event["day_offset"]==-1 and event["completed"]]
+                events=[max(yesterday,key=lambda event:event["date"])] if yesterday else []
             else:
-                events=[]
+                week_games=[event for event in events
+                            if 2<=event["day_offset"]<=7 and not event["completed"]]
+                events=[min(week_games,key=lambda event:event["date"])] if week_games else []
             events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
 
     standings_sport=None
