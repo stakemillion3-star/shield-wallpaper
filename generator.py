@@ -708,7 +708,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     accent=(80,170,255,255) if soccer else (255,80,90,255)
     phase=event.get("phase","NBA")
     league="NATIONS LEAGUE" if soccer else ("PRESEASON" if phase=="PRESEASON" else "NBA")
-    heading="LAST RESULT" if event["completed"] else league
+    heading=league
     centered_text(draw,heading,x+w/2,y+58,font(54,True),accent)
 
     if soccer:
