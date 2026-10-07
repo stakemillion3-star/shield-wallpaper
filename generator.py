@@ -895,14 +895,15 @@ def main():
                                 if any(e["day_offset"]==offset for e in events)),None)
             if preferred_day is not None:
                 events=[event for event in events if event["day_offset"]==preferred_day]
-            elif datetime.now(TZ).hour<12:
+            else:
                 yesterday=[event for event in events
                             if event["day_offset"]==-1 and event["completed"]]
-                events=[max(yesterday,key=lambda event:event["date"])] if yesterday else []
-            else:
-                week_games=[event for event in events
-                            if 2<=event["day_offset"]<=7 and not event["completed"]]
-                events=[min(week_games,key=lambda event:event["date"])] if week_games else []
+                if datetime.now(TZ).hour<12 and yesterday:
+                    events=[max(yesterday,key=lambda event:event["date"])]
+                else:
+                    week_games=[event for event in events
+                                if 2<=event["day_offset"]<=7 and not event["completed"]]
+                    events=[min(week_games,key=lambda event:event["date"])] if week_games else []
             events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
 
     standings_sport=None
