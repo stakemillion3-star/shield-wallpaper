@@ -105,15 +105,57 @@ def nba_phase(last,nxt):
     return "REGULAR SEASON"
 
 def raptors():
-    # Structured schedule feed. Scores render only when the provider marks the game completed.
+    # Keep ESPN's season schedule for upcoming fixtures, and merge the daily
+    # scoreboard because it carries fresher live clocks, scores, and final status.
     urls=[
       "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/tor/schedule?season=2027",
       "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/28/schedule?season=2027"]
-    for u in urls:
+    events=None
+    for url in urls:
         try:
-            last,nxt=fetch_schedule(u)
-            if last or nxt:return last,nxt,nba_phase(last,nxt)
-        except Exception: pass
+            data=get(url)
+            events=[parse_event(raw) for raw in data.get("events",[]) if raw.get("date")]
+            if events:
+                break
+        except Exception:
+            continue
+    if events is None:
+        raise RuntimeError("Raptors schedule unavailable")
+
+    now=datetime.now(TZ)
+    scoreboard_events=[]
+    # Yesterday is included so a game that ends after midnight still becomes
+    # the latest final result instead of disappearing at the date boundary.
+    for day in (now.date(), now.date()-__import__("datetime").timedelta(days=1)):
+        try:
+            data=get(
+                "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+                f"?dates={day:%Y%m%d}&seasontype=1&limit=100"
+            )
+            for raw in data.get("events",[]) or []:
+                if not raw.get("date"):
+                    continue
+                event=parse_event(raw)
+                if any("toronto raptors" in team[0].lower() for team in event["teams"]):
+                    scoreboard_events.append(event)
+        except Exception as exc:
+            print(f"ESPN Raptors daily scoreboard unavailable for {day}: {exc}")
+
+    # Let scoreboard state override the season schedule for the same matchup.
+    def event_key(event):
+        return (event["date"].isoformat(),tuple(sorted(team[0] for team in event["teams"][:2])))
+    by_key={event_key(event):event for event in events}
+    for event in scoreboard_events:
+        by_key[event_key(event)]=event
+    events=sorted(by_key.values(),key=lambda event:event["date"])
+
+    past=[event for event in events if event["completed"] or event["date"]<now]
+    future=[event for event in events if not event["completed"] and event["date"]>=now]
+    last=past[-1] if past else None
+    nxt=future[:3]
+    if last or nxt:
+        print(f"Using ESPN Raptors schedule + live scoreboard: latest={last.get('detail') if last else 'none'}, upcoming={len(nxt)}.")
+        return last,nxt,nba_phase(last,nxt)
     raise RuntimeError("Raptors schedule unavailable")
 
 NATIONS_EVENTS_CACHE=None
