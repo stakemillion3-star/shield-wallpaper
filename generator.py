@@ -124,22 +124,33 @@ def raptors():
 
     now=datetime.now(TZ)
     scoreboard_events=[]
+    # Select the likely season type first, then fall back across ESPN's NBA
+    # preseason (1), regular-season (2), and postseason (3) feeds. This keeps
+    # live and final scores working throughout the year.
+    schedule_phase=nba_phase(None,events)
+    preferred={"PRESEASON":"1","PLAYOFFS":"3","REGULAR SEASON":"2"}.get(schedule_phase,"2")
+    season_types=[preferred]+[value for value in ("1","2","3") if value!=preferred]
     # Yesterday is included so a game that ends after midnight still becomes
     # the latest final result instead of disappearing at the date boundary.
     for day in (now.date(), now.date()-__import__("datetime").timedelta(days=1)):
-        try:
-            data=get(
-                "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
-                f"?dates={day:%Y%m%d}&seasontype=1&limit=100"
-            )
-            for raw in data.get("events",[]) or []:
-                if not raw.get("date"):
-                    continue
-                event=parse_event(raw)
-                if any("toronto raptors" in team[0].lower() for team in event["teams"]):
-                    scoreboard_events.append(event)
-        except Exception as exc:
-            print(f"ESPN Raptors daily scoreboard unavailable for {day}: {exc}")
+        for season_type in season_types:
+            try:
+                data=get(
+                    "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+                    f"?dates={day:%Y%m%d}&seasontype={season_type}&limit=100"
+                )
+                day_events=[]
+                for raw in data.get("events",[]) or []:
+                    if not raw.get("date"):
+                        continue
+                    event=parse_event(raw)
+                    if any("toronto raptors" in team[0].lower() for team in event["teams"]):
+                        day_events.append(event)
+                if day_events:
+                    scoreboard_events.extend(day_events)
+                    break
+            except Exception as exc:
+                print(f"ESPN Raptors daily scoreboard unavailable for {day}, season type {season_type}: {exc}")
 
     # Let scoreboard state override the season schedule for the same matchup.
     def event_key(event):
