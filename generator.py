@@ -866,19 +866,15 @@ def draw_compact_final_panel(im,x,y,w,h,event):
     center_x=x+w/2
     left_cx=x+w*0.245
     right_cx=x+w*0.755
-    phase=event.get("phase","NBA")
-    heading="NATIONS LEAGUE" if sport=="soccer" else (
-        "PRESEASON" if phase=="PRESEASON" else "")
-    if heading:
-        centered_text(draw,heading,center_x,y+58,font(40,True),accent)
+    # Compact result cards have no heading; FINAL is the only status label.
     icon_size=(205,120)
-    icon_y=y+210
+    icon_y=y+175
     place_icon(im,left[0],sport,left_cx,icon_y,icon_size)
     place_icon(im,right[0],sport,right_cx,icon_y,icon_size)
     score=f"{left[1] if left[1] is not None else '—'}  –  {right[1] if right[1] is not None else '—'}"
     centered_text(draw,score,center_x,icon_y,font(72,True),(255,255,255,255))
-    centered_text(draw,display_name(left[0]).upper(),left_cx,y+305,font(32,True),(248,248,250,255))
-    centered_text(draw,display_name(right[0]).upper(),right_cx,y+305,font(32,True),(248,248,250,255))
+    centered_text(draw,display_name(left[0]).upper(),left_cx,y+275,font(32,True),(248,248,250,255))
+    centered_text(draw,display_name(right[0]).upper(),right_cx,y+275,font(32,True),(248,248,250,255))
     centered_text(draw,"FINAL",center_x,y+h-48,font(40,True),accent)
     return im
 
