@@ -70,19 +70,30 @@ def font(size,bold=False):
 def parse_event(e):
     comp=(e.get("competitions") or [{}])[0]
     competitors=comp.get("competitors") or []
+    ordered=sorted(competitors,key=lambda x:x.get("homeAway")!="home")
     names=[]
-    for c in sorted(competitors,key=lambda x:x.get("homeAway")!="home"):
+    period_scores={}
+    for c in ordered:
         t=c.get("team") or {}
-        names.append((t.get("displayName") or t.get("shortDisplayName") or "?",
+        name=t.get("displayName") or t.get("shortDisplayName") or "?"
+        names.append((name,
                       c.get("score",{}).get("displayValue") if isinstance(c.get("score"),dict) else c.get("score"),
                       c.get("homeAway")))
+        values=[]
+        for line in c.get("linescores",[]) or []:
+            value=line.get("value",line.get("displayValue"))
+            try:
+                values.append(int(float(value)))
+            except (TypeError,ValueError):
+                values.append(None)
+        period_scores[name]=values
     dt=datetime.fromisoformat(e["date"].replace("Z","+00:00")).astimezone(TZ)
     status_data=e.get("status") or {}
     status=status_data.get("type") or {}
     return {"date":dt,"state":status.get("state"),"completed":status.get("completed",False),
             "detail":status.get("shortDetail") or status.get("detail") or "",
             "clock":status_data.get("displayClock") or status_data.get("clockDisplayValue") or "",
-            "period":status_data.get("period"),"teams":names,
+            "period":status_data.get("period"),"teams":names,"period_scores":period_scores,
             "name":e.get("shortName") or e.get("name") or ""}
 
 def fetch_schedule(url):
@@ -723,32 +734,61 @@ def soccer_live_label(event):
     except ValueError:
         return "LIVE • TODAY"
 
-def nba_live_detail(event):
+def nba_live_checkpoint(event):
+    # Show only completed-period scores: end of Q1, halftime, end of Q3,
+    # then the final score. In-quarter scoring is deliberately held back.
     detail=str(event.get("detail") or "").strip()
     lower=detail.lower()
     if "half" in lower:
-        return "HALFTIME"
-    ordinals=("1st","2nd","3rd","4th")
-    if "end" in lower or "complete" in lower:
-        for index,ordinal in enumerate(ordinals,1):
-            if ordinal in lower:
-                return f"END {index}Q"
-    period=event.get("period")
-    clock=str(event.get("clock") or "").strip()
-    try:
-        period=int(period)
-    except (TypeError,ValueError):
-        period=None
-    if period and 1<=period<=4 and clock:
-        return f"{clock} {period}Q"
-    # Use ESPN's text status as a fallback if structured clock fields are absent.
-    tokens=lower.replace("–"," ").replace("-"," ").split()
-    clock_token=next((token for token in tokens if ":" in token),None)
-    if clock_token:
-        for index,ordinal in enumerate(ordinals,1):
-            if ordinal in lower:
-                return f"{clock_token} {index}Q"
-    return "LIVE"
+        completed_periods,label=2,"HALFTIME"
+    elif "end" in lower or "complete" in lower:
+        if "3rd" in lower or "third" in lower:
+            completed_periods,label=3,"END 3Q"
+        elif "2nd" in lower or "second" in lower:
+            completed_periods,label=2,"HALFTIME"
+        elif "1st" in lower or "first" in lower:
+            completed_periods,label=1,"END 1Q"
+        else:
+            completed_periods,label=0,"LIVE"
+    else:
+        try:
+            period=int(event.get("period") or 0)
+        except (TypeError,ValueError):
+            period=0
+        if period>=4:
+            completed_periods,label=3,"END 3Q"
+        elif period==3:
+            completed_periods,label=2,"HALFTIME"
+        elif period==2:
+            completed_periods,label=1,"END 1Q"
+        else:
+            completed_periods,label=0,"LIVE"
+
+    if completed_periods==0:
+        return None,label
+    period_scores=event.get("period_scores") or {}
+    totals={}
+    for team in event.get("teams") or []:
+        name=team[0]
+        values=period_scores.get(name) or []
+        if len(values)>=completed_periods and all(
+                isinstance(value,(int,float)) for value in values[:completed_periods]):
+            totals[name]=sum(values[:completed_periods])
+    if len(totals)==2:
+        return totals,label
+
+    # At an explicitly reported quarter break, ESPN's cumulative score is
+    # already the exact checkpoint score. Avoid using it once play resumes.
+    explicit_break=("half" in lower or "end of" in lower or "end " in lower)
+    if explicit_break:
+        try:
+            totals={team[0]:int(str(team[1]).replace(",",""))
+                    for team in event.get("teams") or []}
+            if len(totals)==2:
+                return totals,label
+        except (TypeError,ValueError):
+            pass
+    return None,label
 
 def fitted_font(draw,text,max_width,initial=44,minimum=32):
     size=initial
@@ -794,12 +834,19 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
         centered_text(draw,middle,mark_x,icon_y,font(105,True),(255,255,255,255))
         centered_text(draw,"FINAL",center_x,y+655,font(64,True),accent)
     elif event.get("state")=="in":
-        middle=f"{left[1] or '0'}  –  {right[1] or '0'}"
-        centered_text(draw,middle,mark_x,icon_y,font(105,True),(255,255,255,255))
         if event["sport"]=="nba":
-            centered_text(draw,nba_live_detail(event),mark_x,icon_y+88,
-                          font(52,True),accent)
+            checkpoint,label=nba_live_checkpoint(event)
+            left_score=checkpoint.get(left[0]) if checkpoint else None
+            right_score=checkpoint.get(right[0]) if checkpoint else None
+            if left_score is not None and right_score is not None:
+                middle=f"{left_score}  –  {right_score}"
+            else:
+                middle=matchup_mark
+            centered_text(draw,middle,mark_x,icon_y,font(105,True),(255,255,255,255))
+            centered_text(draw,label,mark_x,icon_y+88,font(52,True),accent)
         else:
+            middle=f"{left[1] or '0'}  –  {right[1] or '0'}"
+            centered_text(draw,middle,mark_x,icon_y,font(105,True),(255,255,255,255))
             centered_text(draw,soccer_live_label(event),center_x,y+655,font(64,True),accent)
     else:
         centered_text(draw,matchup_mark,mark_x,icon_y,font(105,True),(255,255,255,255))
