@@ -844,6 +844,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
                 middle=matchup_mark
             centered_text(draw,middle,mark_x,icon_y,font(105,True),(255,255,255,255))
             centered_text(draw,label,mark_x,icon_y+88,font(52,True),accent)
+            centered_text(draw,"LIVE",center_x,y+655,font(64,True),accent)
         else:
             middle=f"{left[1] or '0'}  –  {right[1] or '0'}"
             centered_text(draw,middle,mark_x,icon_y,font(105,True),(255,255,255,255))
