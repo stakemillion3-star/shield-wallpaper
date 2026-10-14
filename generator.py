@@ -954,17 +954,44 @@ def main():
         if rphase=="PRESEASON":
             local_now=datetime.now(TZ)
             before_noon=local_now.hour<12
-            candidates=[
-                [e for e in raw_nba_events if e["day_offset"]==0 and not e["completed"]],
-                [e for e in raw_nba_events if e["day_offset"]==1 and not e["completed"]],
-                [e for e in raw_nba_events if e["day_offset"]==0 and e["completed"]],
-                [e for e in raw_nba_events if e["day_offset"]==-1 and e["completed"]]
-                    if before_noon else [],
+            today_games=sorted(
                 [e for e in raw_nba_events
-                 if 2<=e["day_offset"]<=7 and not e["completed"]]
-            ]
-            nba_events=next((sorted(group,key=lambda event:event["date"])[:1]
-                             for group in candidates if group),[])
+                 if e["day_offset"]==0 and not e["completed"]],
+                key=lambda event:event["date"])
+            tomorrow_games=sorted(
+                [e for e in raw_nba_events
+                 if e["day_offset"]==1 and not e["completed"]],
+                key=lambda event:event["date"])
+            final_today=sorted(
+                [e for e in raw_nba_events
+                 if e["day_offset"]==0 and e["completed"]],
+                key=lambda event:event["date"])
+            final_yesterday=sorted(
+                [e for e in raw_nba_events
+                 if e["day_offset"]==-1 and e["completed"]],
+                key=lambda event:event["date"])
+
+            # Keep today's game first, with tomorrow's game below when both
+            # are scheduled. Once only tomorrow remains, pair it with the
+            # latest final from today (or yesterday before noon).
+            if today_games:
+                nba_events=[today_games[0]]
+                if tomorrow_games:
+                    nba_events.append(tomorrow_games[0])
+            elif tomorrow_games:
+                nba_events=[tomorrow_games[0]]
+                recent_final=final_today[-1:] or (final_yesterday[-1:] if before_noon else [])
+                nba_events.extend(recent_final)
+            elif final_today:
+                nba_events=[final_today[-1]]
+            elif before_noon and final_yesterday:
+                nba_events=[final_yesterday[-1]]
+            else:
+                week_games=sorted(
+                    [e for e in raw_nba_events
+                     if 2<=e["day_offset"]<=7 and not e["completed"]],
+                    key=lambda event:event["date"])
+                nba_events=week_games[:1]
             nba_show_standings=False
         else:
             nba_events,nba_show_standings=regular_nba_event_stack(raw_nba_events)
@@ -982,30 +1009,64 @@ def main():
     # selection used by the rest of the wallpaper.
     regular_nba=(rphase=="REGULAR SEASON")
     preserve_nba_stack=(
-        regular_nba
-        and not any(e["day_offset"]==0 for e in soccer_events)
+        not any(e["day_offset"]==0 for e in soccer_events)
         and bool(nba_events)
         and any(e["day_offset"] in (0,1) for e in nba_events)
     )
     if preserve_nba_stack:
         events=nba_events
     else:
-        events=soccer_events+nba_events
-        if events:
-            preferred_day=next((offset for offset in (0,1)
-                                if any(e["day_offset"]==offset for e in events)),None)
-            if preferred_day is not None:
-                events=[event for event in events if event["day_offset"]==preferred_day]
+        available=soccer_events+nba_events
+        local_now=datetime.now(TZ)
+        today_games=sorted(
+            [e for e in available if e["day_offset"]==0 and not e["completed"]],
+            key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
+        tomorrow_games=sorted(
+            [e for e in available if e["day_offset"]==1 and not e["completed"]],
+            key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
+        if today_games:
+            primary=today_games[0]
+            events=[primary]
+            # Show a same-sport tomorrow game in the lower card.
+            next_game=next((e for e in tomorrow_games
+                            if e["sport"]==primary["sport"]),None)
+            if next_game:
+                events.append(next_game)
+        elif tomorrow_games:
+            primary=tomorrow_games[0]
+            events=[primary]
+            # A recent final fills the lower card in place of standings.
+            recent_finals=sorted(
+                [e for e in available
+                 if e["sport"]==primary["sport"] and e["completed"]
+                 and e["day_offset"]==0],
+                key=lambda event:event["date"])
+            if not recent_finals and local_now.hour<12:
+                recent_finals=sorted(
+                    [e for e in available
+                     if e["sport"]==primary["sport"] and e["completed"]
+                     and e["day_offset"]==-1],
+                    key=lambda event:event["date"])
+            if recent_finals:
+                events.append(recent_finals[-1])
+        else:
+            finals_today=sorted(
+                [e for e in available if e["completed"] and e["day_offset"]==0],
+                key=lambda event:event["date"])
+            finals_yesterday=sorted(
+                [e for e in available if e["completed"] and e["day_offset"]==-1],
+                key=lambda event:event["date"])
+            if finals_today:
+                events=[finals_today[-1]]
+            elif local_now.hour<12 and finals_yesterday:
+                events=[finals_yesterday[-1]]
             else:
-                yesterday=[event for event in events
-                            if event["day_offset"]==-1 and event["completed"]]
-                if datetime.now(TZ).hour<12 and yesterday:
-                    events=[max(yesterday,key=lambda event:event["date"])]
-                else:
-                    week_games=[event for event in events
-                                if 2<=event["day_offset"]<=7 and not event["completed"]]
-                    events=[min(week_games,key=lambda event:event["date"])] if week_games else []
-            events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
+                week_games=sorted(
+                    [e for e in available if 2<=e["day_offset"]<=7
+                     and not e["completed"]],
+                    key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
+                events=week_games[:1]
+        events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
 
     standings_sport=None
     keep_soccer_standings=(
