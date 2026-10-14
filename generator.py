@@ -1066,16 +1066,19 @@ def main():
                      and not e["completed"]],
                     key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
                 events=week_games[:1]
-        events.sort(key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
+        # Keep the selected event order: upcoming first, recent final second.
 
     standings_sport=None
+    soccer_match_pair=(len(events)>1 and all(event["sport"]=="soccer" for event in events))
     keep_soccer_standings=(
-        datetime.now(TZ).hour<12
+        len(events)==1
+        and datetime.now(TZ).hour<12
         and any(event["sport"]=="soccer" and event["day_offset"]==-1
                 and event["completed"] for event in events)
     )
-    if (any(event["sport"]=="soccer" and event["day_offset"]==0 for event in events)
-            or keep_soccer_standings):
+    if (not soccer_match_pair
+            and (any(event["sport"]=="soccer" and event["day_offset"]==0 for event in events)
+                 or keep_soccer_standings)):
         standings_sport="soccer"
         competition_label=bcomp or "NATIONS LEAGUE • GROUP B4"
     elif regular_nba and nba_show_standings and any(event["sport"]=="nba" for event in events):
