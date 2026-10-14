@@ -853,6 +853,30 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
         centered_text(draw,matchup_mark,mark_x,icon_y,font(105,True),(255,255,255,255))
         centered_text(draw,event_time_label(event),center_x,y+655,font(64,True),accent)
 
+def draw_compact_final_panel(im,x,y,w,h,event):
+    im=panel(im,(x,y,x+w,y+h),194)
+    draw=ImageDraw.Draw(im)
+    sport=event["sport"]
+    accent=(80,170,255,255) if sport=="soccer" else (255,80,90,255)
+    if sport=="nba":
+        left,right,_=nba_display_teams(event)
+    else:
+        left,right=event["teams"][0],event["teams"][1]
+    center_x=x+w/2
+    left_cx=x+w*0.245
+    right_cx=x+w*0.755
+    icon_size=(205,120)
+    icon_y=y+132
+    place_icon(im,left[0],sport,left_cx,icon_y,icon_size)
+    place_icon(im,right[0],sport,right_cx,icon_y,icon_size)
+    score=f"{left[1] if left[1] is not None else '—'}  –  {right[1] if right[1] is not None else '—'}"
+    centered_text(draw,score,center_x,icon_y,font(92,True),(255,255,255,255))
+    centered_text(draw,display_name(left[0]).upper(),left_cx,y+258,font(34,True),(248,248,250,255))
+    centered_text(draw,display_name(right[0]).upper(),right_cx,y+258,font(34,True),(248,248,250,255))
+    centered_text(draw,"FINAL",center_x,y+h-54,font(48,True),accent)
+    return im
+
+
 def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
     im=panel(im,(x,y,x+w,y+h),194); draw=ImageDraw.Draw(im)
     if sport=="nba":
@@ -898,25 +922,32 @@ def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
 def draw_centered_panel(im,events,show_standings,competition_label):
     if not events:
         return im
-    # All matchup cards have one fixed footprint. The group is centered as
-    # a whole, with a uniform gap between each matchup and standings panel.
     card_w=2500
-    card_h=740
-    card_count=min(len(events),2)
+    standard_h=740
     standings_h=450 if show_standings else 0
+    card_count=min(len(events),2)
+    # A final in the lower slot uses the same compact footprint as standings.
+    card_heights=[standard_h]
+    if card_count==2:
+        card_heights.append(450 if events[1].get("completed") else standard_h)
     gap=22
-    group_h=card_count*card_h+standings_h+gap*(card_count-1+int(show_standings))
+    group_h=sum(card_heights)+standings_h+gap*(card_count-1+int(show_standings))
     x=(W-card_w)//2
     y=max(60,(H-group_h)//2)
 
+    panel_y=y
     for index,event in enumerate(events[:card_count]):
-        panel_y=y+index*(card_h+gap)
-        im=panel(im,(x,panel_y,x+card_w,panel_y+card_h),194)
-        draw=ImageDraw.Draw(im)
-        draw_event_row(im,draw,event,x+70,panel_y+8,card_w-140,card_h-16)
+        card_h=card_heights[index]
+        if index>0 and event.get("completed"):
+            im=draw_compact_final_panel(im,x,panel_y,card_w,card_h,event)
+        else:
+            im=panel(im,(x,panel_y,x+card_w,panel_y+card_h),194)
+            draw=ImageDraw.Draw(im)
+            draw_event_row(im,draw,event,x+70,panel_y+8,card_w-140,card_h-16)
+        panel_y+=card_h+gap
 
     if show_standings:
-        stand_y=y+card_count*card_h+gap*(card_count-1+1)
+        stand_y=y+sum(card_heights)+gap*(card_count-1+1)
         im=draw_standings_panel(im,x,stand_y,card_w,standings_h,competition_label,
                                 sport=events[0]["sport"])
     return im
