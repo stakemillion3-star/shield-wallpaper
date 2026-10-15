@@ -11,7 +11,7 @@ class SettingsFragment : GuidedStepSupportFragment() {
     override fun onCreateGuidance(savedInstanceState: Bundle?): Guidance {
         return Guidance(
             getString(R.string.plugin_name),
-            "Checks your GitHub wallpaper feed every 15 minutes.",
+            "Checks your GitHub wallpaper feed every 5 minutes.",
             "Wallpaper refresh",
             AppCompatResources.getDrawable(requireActivity(), R.drawable.ic_plugin)
         )
