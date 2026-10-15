@@ -38,3 +38,15 @@ strings_text = strings_text.replace(
 if "CHANGE_ME" in strings_text:
     raise SystemExit("Plugin UUID replacement failed.")
 strings.write_text(strings_text, encoding="utf-8")
+
+# The template passes an Android resource ID, but Projectivy requires the UUID string.
+activity = java_dir / "SettingsActivity.kt"
+activity_text = activity.read_text(encoding="utf-8")
+old_provider_id = "putExtra(WallpaperProviderContract.EXTRA_PROVIDER_ID, R.string.plugin_uuid)"
+if old_provider_id not in activity_text:
+    raise SystemExit("Projectivy template refresh broadcast changed; review before building.")
+activity.write_text(
+    activity_text.replace(old_provider_id,
+        "putExtra(WallpaperProviderContract.EXTRA_PROVIDER_ID, getString(R.string.plugin_uuid))"),
+    encoding="utf-8",
+)

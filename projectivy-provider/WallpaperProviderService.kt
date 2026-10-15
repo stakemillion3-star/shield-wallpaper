@@ -3,6 +3,7 @@ package tv.projectivy.plugin.wallpaperprovider.sample
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import org.json.JSONArray
 import tv.projectivy.plugin.wallpaperprovider.api.Event
 import tv.projectivy.plugin.wallpaperprovider.api.IWallpaperProviderService
@@ -23,10 +24,9 @@ class WallpaperProviderService : Service() {
 
     private val binder = object : IWallpaperProviderService.Stub() {
         override fun getWallpapers(event: Event?): List<Wallpaper> {
-            if (event is Event.LauncherIdleModeChanged && !event.isIdle) return emptyList()
             return fetchLatestWallpaper()?.let { listOf(it) }
                 ?: lastWallpaper?.let { listOf(it) }
-                ?: emptyList()
+                ?: listOf(savedWallpaper())
         }
 
         override fun getPreferences(): String = ""
@@ -60,16 +60,30 @@ class WallpaperProviderService : Service() {
                 title = entry.optString("title", "Shield Sports"),
                 source = "GitHub"
             )
+            getSharedPreferences("wallpaper", MODE_PRIVATE).edit()
+                .putString("image_url", imageUrl).apply()
             lastWallpaper = wallpaper
             wallpaper
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            Log.w("ShieldSports", "Feed unavailable; retaining sports wallpaper", error)
             null
         } finally {
             connection?.disconnect()
         }
     }
 
+    private fun savedWallpaper(): Wallpaper = Wallpaper(
+        uri = getSharedPreferences("wallpaper", MODE_PRIVATE)
+            .getString("image_url", IMAGE_URL) ?: IMAGE_URL,
+        type = WallpaperType.IMAGE,
+        displayMode = WallpaperDisplayMode.CROP,
+        title = "Shield Sports",
+        source = "GitHub"
+    )
+
     companion object {
+        private const val IMAGE_URL =
+            "https://stakemillion3-star.github.io/shield-wallpaper/wallpaper.jpg"
         private const val FEED_URL =
             "https://stakemillion3-star.github.io/shield-wallpaper/p.json"
     }
