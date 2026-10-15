@@ -20,7 +20,7 @@ old_cache = 'android:value="@integer/items_cache_duration_millis"'
 if old_cache not in manifest_text:
     raise SystemExit("Projectivy template cache-duration setting changed; review before building.")
 manifest.write_text(
-    manifest_text.replace(old_cache, 'android:value="900000"'),
+    manifest_text.replace(old_cache, 'android:value="300000"'),
     encoding="utf-8",
 )
 
