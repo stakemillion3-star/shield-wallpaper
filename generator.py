@@ -1134,6 +1134,7 @@ def main():
         print("No games in the three-day display window. "+" | ".join(errors))
     im.convert("RGB").save("wallpaper.jpg","JPEG",quality=96,optimize=True,progressive=True)
 
+    # Keep the existing p.json feed URL and publish a fresh, cache-busted image after each render.
     version=datetime.now(TZ).strftime("%Y%m%d")
     digest=hashlib.sha256(open("wallpaper.jpg","rb").read()).hexdigest()[:12]
     feed=[{"location":"Shield Sports","title":"Bosnia & Raptors Daily Wallpaper",
