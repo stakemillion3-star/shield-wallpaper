@@ -687,8 +687,10 @@ def regular_nba_event_stack(events, now=None):
 
     if final_today:
         if next_tomorrow:
-            # The next game takes the main card after today's result is final.
-            return [next_tomorrow[0],final_today[-1]],False
+            # Keep the game-day final in the main card until midnight.
+            # At midnight, the next game becomes today's main card and the
+            # final moves into the compact lower card through noon.
+            return [final_today[-1],next_tomorrow[0]],False
         return [final_today[-1]],True
 
     if next_tomorrow:
@@ -1050,28 +1052,39 @@ def main():
         if today_games:
             primary=today_games[0]
             events=[primary]
-            # Show a same-sport tomorrow game in the lower card.
+            # Until noon, keep yesterday's same-sport final in the compact
+            # lower panel after the calendar date rolls over.
+            recent_finals=sorted(
+                [e for e in available
+                 if e["sport"]==primary["sport"] and e["completed"]
+                 and e["day_offset"]==-1],
+                key=lambda event:event["date"])
             next_game=next((e for e in tomorrow_games
                             if e["sport"]==primary["sport"]),None)
-            if next_game:
+            if recent_finals and local_now.hour<12:
+                events.append(recent_finals[-1])
+            elif next_game:
                 events.append(next_game)
         elif tomorrow_games:
             primary=tomorrow_games[0]
-            events=[primary]
-            # A recent final fills the lower card in place of standings.
-            recent_finals=sorted(
+            same_day_finals=sorted(
                 [e for e in available
                  if e["sport"]==primary["sport"] and e["completed"]
                  and e["day_offset"]==0],
                 key=lambda event:event["date"])
-            if not recent_finals and local_now.hour<12:
+            if same_day_finals:
+                # A final remains the main card for the rest of game day.
+                events=[same_day_finals[-1],primary]
+            else:
+                events=[primary]
+                # After midnight, yesterday's final stays below until noon.
                 recent_finals=sorted(
                     [e for e in available
                      if e["sport"]==primary["sport"] and e["completed"]
                      and e["day_offset"]==-1],
                     key=lambda event:event["date"])
-            if recent_finals:
-                events.append(recent_finals[-1])
+                if recent_finals and local_now.hour<12:
+                    events.append(recent_finals[-1])
         else:
             finals_today=sorted(
                 [e for e in available if e["completed"] and e["day_offset"]==0],
