@@ -854,70 +854,54 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
         centered_text(draw,matchup_mark,mark_x,icon_y,font(105,True),(255,255,255,255))
         centered_text(draw,event_time_label(event),center_x,y+655,font(64,True),accent)
 
-def draw_compact_final_panel(im,x,y,w,h,event):
+def draw_compact_event_panel(im,x,y,w,h,event):
     im=panel(im,(x,y,x+w,y+h),194)
     draw=ImageDraw.Draw(im)
     sport=event["sport"]
     accent=(80,170,255,255) if sport=="soccer" else (255,80,90,255)
     if sport=="nba":
-        left,right,_=nba_display_teams(event)
+        left,right,mark=nba_display_teams(event)
     else:
         left,right=event["teams"][0],event["teams"][1]
+        mark="@" if any("bosnia" in t[0].lower() and str(t[2]).lower()=="away"
+                        for t in (left,right)) else "VS"
+
+    # Every secondary card uses the standings panel's 450px footprint.
+    # Keep its league label, logos, names, and status compact.
+    heading=("PRESEASON" if event.get("phase")=="PRESEASON" else
+             ("NATIONS LEAGUE" if sport=="soccer" else ""))
+    if heading:
+        centered_text(draw,heading,x+w/2,y+48,font(34,True),accent)
+
     center_x=x+w/2
     left_cx=x+w*0.245
     right_cx=x+w*0.755
-    # Compact result cards have no heading; FINAL is the only status label.
     icon_size=(205,120)
     icon_y=y+175
     place_icon(im,left[0],sport,left_cx,icon_y,icon_size)
     place_icon(im,right[0],sport,right_cx,icon_y,icon_size)
-    score=f"{left[1] if left[1] is not None else '—'}  –  {right[1] if right[1] is not None else '—'}"
-    centered_text(draw,score,center_x,icon_y,font(72,True),(255,255,255,255))
-    centered_text(draw,display_name(left[0]).upper(),left_cx,y+275,font(32,True),(248,248,250,255))
-    centered_text(draw,display_name(right[0]).upper(),right_cx,y+275,font(32,True),(248,248,250,255))
-    centered_text(draw,"FINAL",center_x,y+h-48,font(40,True),accent)
-    return im
 
+    if event["completed"]:
+        middle=f"{left[1] if left[1] is not None else '—'}  –  {right[1] if right[1] is not None else '—'}"
+        status="FINAL"
+    elif event.get("state")=="in":
+        if sport=="nba":
+            checkpoint,label=nba_live_checkpoint(event)
+            ls=checkpoint.get(left[0]) if checkpoint else None
+            rs=checkpoint.get(right[0]) if checkpoint else None
+            middle=f"{ls}  –  {rs}" if ls is not None and rs is not None else mark
+            status="LIVE"
+        else:
+            middle=f"{left[1] or '0'}  –  {right[1] or '0'}"
+            status=soccer_live_label(event)
+    else:
+        middle=mark
+        status=event_time_label(event)
 
-def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
-    im=panel(im,(x,y,x+w,y+h),194); draw=ImageDraw.Draw(im)
-    if sport=="nba":
-        rows=standings_data("nba")
-        col_x=[x+w-510,x+w-390,x+w-260,x+w-120]
-        for heading,cx in zip(["W","L","PCT","GB"],col_x):
-            centered_text(draw,heading,cx,y+58,font(31,True),(235,238,244,255))
-        slot_h=max(58,(h-100)//max(1,len(rows)))
-        row_h=58
-        row_start=y+86
-        for i,row in enumerate(rows):
-            ry=row_start+i*slot_h+(slot_h-row_h)//2
-            if row["abbr"]=="TOR" or "raptors" in row["name"].lower():
-                draw.rounded_rectangle((x+22,ry-2,x+w-22,ry+row_h-4),radius=12,
-                                       fill=(76,8,18,232),outline=(255,92,104,150),width=2)
-            centered_text(draw,row["rank"]+".",x+64,ry+row_h/2,font(32,True),(255,255,255,255))
-            icon=team_icon(row["name"],"nba",(38,38))
-            if icon: im.alpha_composite(icon,(x+104,ry+int(row_h/2-icon.height/2)))
-            draw.text((x+164,ry+row_h/2),row["name"],anchor="lm",
-                      font=fitted_font(draw,row["name"],w-900,32,25),fill=(255,255,255,255))
-            for cx,value in zip(col_x,[row["wins"],row["losses"],row["pct"],row["gb"]]):
-                centered_text(draw,str(value),cx,ry+row_h/2,font(31,True),(255,255,255,255))
-        return im
-    rows=standings_data("soccer")
-    table_w=min(w-150,2320); tx=x+(w-table_w)//2
-    col_x=[tx+table_w-575,tx+table_w-455,tx+table_w-335,tx+table_w-205,tx+table_w-65]
-    for heading,cx in zip(["W","D","L","GD","PTS"],col_x):
-        centered_text(draw,heading,cx,y+58,font(37,True),(235,238,244,255))
-    for i,(position,name,played,wins,draws,losses,gd,points) in enumerate(rows):
-        ry=y+97+i*77
-        if "Bosnia" in name:
-            draw.rounded_rectangle((tx+8,ry-2,tx+table_w-8,ry+71),radius=14,fill=(35,105,170,165))
-        centered_text(draw,position+".",tx+44,ry+38,font(40,True),(255,255,255,255))
-        icon=team_icon(name,"soccer",(94,60))
-        if icon: im.alpha_composite(icon,(tx+96,ry+38-icon.height//2))
-        draw.text((tx+220,ry+38),display_name(name),anchor="lm",
-                  font=fitted_font(draw,display_name(name),table_w-900,40,34),fill=(255,255,255,255))
-        for cx,value in zip(col_x,[wins,draws,losses,gd,points]):
-            centered_text(draw,str(value),cx,ry+38,font(40,True),(255,255,255,255))
+    centered_text(draw,middle,center_x,icon_y,font(60,True),(255,255,255,255))
+    centered_text(draw,display_name(left[0]).upper(),left_cx,y+275,font(30,True),(248,248,250,255))
+    centered_text(draw,display_name(right[0]).upper(),right_cx,y+275,font(30,True),(248,248,250,255))
+    centered_text(draw,status,center_x,y+h-48,font(36,True),accent)
     return im
 
 
@@ -925,34 +909,32 @@ def draw_centered_panel(im,events,show_standings,competition_label):
     if not events:
         return im
     card_w=2500
-    standard_h=740
+    main_h=740
+    secondary_h=450
     standings_h=450 if show_standings else 0
     card_count=min(len(events),2)
-    # A final in the lower slot uses the same compact footprint as standings.
-    card_heights=[standard_h]
-    if card_count==2:
-        card_heights.append(450 if events[1].get("completed") else standard_h)
     gap=22
-    group_h=sum(card_heights)+standings_h+gap*(card_count-1+int(show_standings))
+    group_h=main_h+(secondary_h if card_count==2 else 0)+standings_h
+    group_h+=gap*(card_count-1+int(show_standings))
     x=(W-card_w)//2
     y=max(60,(H-group_h)//2)
 
-    panel_y=y
-    for index,event in enumerate(events[:card_count]):
-        card_h=card_heights[index]
-        if index>0 and event.get("completed"):
-            im=draw_compact_final_panel(im,x,panel_y,card_w,card_h,event)
-        else:
-            im=panel(im,(x,panel_y,x+card_w,panel_y+card_h),194)
-            draw=ImageDraw.Draw(im)
-            draw_event_row(im,draw,event,x+70,panel_y+8,card_w-140,card_h-16)
-        panel_y+=card_h+gap
+    im=panel(im,(x,y,x+card_w,y+main_h),194)
+    draw=ImageDraw.Draw(im)
+    draw_event_row(im,draw,events[0],x+70,y+8,card_w-140,main_h-16)
+
+    next_y=y+main_h
+    if card_count==2:
+        next_y+=gap
+        im=draw_compact_event_panel(im,x,next_y,card_w,secondary_h,events[1])
+        next_y+=secondary_h
 
     if show_standings:
-        stand_y=y+sum(card_heights)+gap*(card_count-1+1)
+        stand_y=next_y+gap
         im=draw_standings_panel(im,x,stand_y,card_w,standings_h,competition_label,
                                 sport=events[0]["sport"])
     return im
+
 
 def main():
     global DISPLAY_DATE
