@@ -14,7 +14,7 @@ import java.net.URL
 
 /**
  * Reads the current wallpaper URL from the repo's Overflight-compatible p.json feed.
- * Projectivy requests this provider again after the manifest cache interval (15 minutes).
+ * Projectivy requests this provider again after the manifest cache interval (5 minutes).
  */
 class WallpaperProviderService : Service() {
     @Volatile private var lastWallpaper: Wallpaper? = null
