@@ -4,7 +4,7 @@ This companion provider reads the existing Overflight-compatible feed at:
 
 `https://stakemillion3-star.github.io/shield-wallpaper/p.json`
 
-It asks Projectivy to re-request the feed every 15 minutes while Projectivy is refreshing wallpapers. Each request uses a cache-busting query on the JSON feed; the image URL already carries the rendered image hash.
+It asks Projectivy to re-request the feed every 5 minutes while Projectivy is refreshing wallpapers. Each request uses a cache-busting query on the JSON feed; the image URL already carries the rendered image hash.
 
 ## Build
 
