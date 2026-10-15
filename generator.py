@@ -991,7 +991,12 @@ def main():
             # latest final from today (or yesterday before noon).
             if today_games:
                 nba_events=[today_games[0]]
-                if tomorrow_games:
+                # After midnight, today's scheduled game becomes the main card.
+                # Keep yesterday's final in the compact lower card until noon.
+                recent_final=final_yesterday[-1:] if before_noon else []
+                if recent_final:
+                    nba_events.extend(recent_final)
+                elif tomorrow_games:
                     nba_events.append(tomorrow_games[0])
             elif tomorrow_games:
                 nba_events=[tomorrow_games[0]]
