@@ -267,15 +267,19 @@ def fmt_date(dt):
     local=dt.astimezone(TZ)
     today=DISPLAY_DATE or datetime.now(TZ).date()
     delta=(local.date()-today).days
+    # Android's strftime does not consistently support the GNU %-I flag.
+    time_label=f"{local.hour % 12 or 12}:{local.minute:02d} {'AM' if local.hour<12 else 'PM'}"
     if delta==0:
-        return "TODAY • "+local.strftime("%-I:%M %p")
+        return "TODAY • "+time_label
     if delta==1:
-        return "TOMORROW • "+local.strftime("%-I:%M %p")
+        return "TOMORROW • "+time_label
     if delta==-1:
         return "YESTERDAY • FINAL"
     if 2<=delta<=7:
-        return local.strftime("%A • %-I:%M %p").upper()
-    return local.strftime("%a %b %d • %-I:%M %p")
+        return local.strftime("%A").upper()+" • "+time_label
+    return local.strftime("%a %b %d")+" • "+time_label
+
+
 
 def matchup(e,with_score=False):
     if not e:return "—"
@@ -834,7 +838,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
         centered_text(draw,matchup_mark,mark_x,icon_y,font(105,True),(255,255,255,255))
         centered_text(draw,event_time_label(event),center_x,y+655,font(64,True),accent)
 
-def draw_compact_event_panel(im,x,y,w,h,event):
+def draw_compact_event_panel(im,x,y,w,h,event,show_heading=True):
     im=panel(im,(x,y,x+w,y+h),194)
     draw=ImageDraw.Draw(im)
     sport=event["sport"]
@@ -850,7 +854,7 @@ def draw_compact_event_panel(im,x,y,w,h,event):
     # Keep its league label, logos, names, and status compact.
     heading=("PRESEASON" if event.get("phase")=="PRESEASON" else
              ("NATIONS LEAGUE" if sport=="soccer" else ""))
-    if heading:
+    if heading and show_heading:
         centered_text(draw,heading,x+w/2,y+48,font(34,True),accent)
 
     center_x=x+w/2
@@ -885,6 +889,7 @@ def draw_compact_event_panel(im,x,y,w,h,event):
     return im
 
 
+
 def draw_centered_panel(im,events,show_standings,competition_label):
     if not events:
         return im
@@ -906,7 +911,8 @@ def draw_centered_panel(im,events,show_standings,competition_label):
     next_y=y+main_h
     if card_count==2:
         next_y+=gap
-        im=draw_compact_event_panel(im,x,next_y,card_w,secondary_h,events[1])
+        im=draw_compact_event_panel(im,x,next_y,card_w,secondary_h,events[1],
+                                    show_heading=events[0]["sport"]!=events[1]["sport"])
         next_y+=secondary_h
 
     if show_standings:
@@ -914,6 +920,7 @@ def draw_centered_panel(im,events,show_standings,competition_label):
         im=draw_standings_panel(im,x,stand_y,card_w,standings_h,competition_label,
                                 sport=events[0]["sport"])
     return im
+
 
 
 def main():
