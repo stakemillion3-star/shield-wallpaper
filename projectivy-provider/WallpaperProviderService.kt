@@ -1,6 +1,18 @@
 package tv.projectivy.plugin.wallpaperprovider.sample
 
 import android.app.Service
+import android.app.AppOpsManager
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.os.PowerManager
+import android.os.Process
+import android.os.SystemClock
+import androidx.core.content.ContextCompat
+import org.json.JSONObject
+import java.util.concurrent.ScheduledFuture
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
@@ -21,6 +33,76 @@ class WallpaperProviderService : Service() {
     private val worker = Executors.newSingleThreadScheduledExecutor()
     @Volatile private var current: Wallpaper? = null
     private lateinit var workspace: File
+    private var pending: ScheduledFuture<*>? = null
+    private var nextCheckAt = 0L
+    private var lastQuery = 0L
+    private var foregroundPackage: String? = null
+    private var foregroundClass: String? = null
+    private var revision = ""
+    @Volatile private var destroyed = false
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == Intent.ACTION_SCREEN_OFF) {
+                synchronized(this@WallpaperProviderService) {
+                    pending?.cancel(true)
+                    pending = null
+                }
+                Log.i("ShieldSports", "Paused: screen off")
+            } else if (intent.action == Intent.ACTION_SCREEN_ON) {
+                requestCheck()
+            }
+        }
+    }
+
+    /** Used by both the worker and Python before each network/drawing stage. */
+    @Synchronized fun isAllowed(): Boolean {
+        if (destroyed || Thread.currentThread().isInterrupted) return false
+        if (!(getSystemService(POWER_SERVICE) as PowerManager).isInteractive) return false
+        val ops = getSystemService(APP_OPS_SERVICE) as AppOpsManager
+        if (ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(), packageName) != AppOpsManager.MODE_ALLOWED) return false
+        val now = System.currentTimeMillis()
+        val start = if (lastQuery == 0L) now - TimeUnit.DAYS.toMillis(1) else lastQuery - 1
+        val events = (getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager).queryEvents(start, now)
+        val event = UsageEvents.Event()
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            when (event.eventType) {
+                UsageEvents.Event.ACTIVITY_RESUMED -> {
+                    foregroundPackage = event.packageName
+                    foregroundClass = event.className
+                }
+                UsageEvents.Event.ACTIVITY_PAUSED -> {
+                    if (foregroundPackage == event.packageName && foregroundClass == event.className) {
+                        foregroundPackage = null
+                        foregroundClass = null
+                    }
+                }
+            }
+        }
+        lastQuery = now
+        return foregroundPackage == "com.spocky.projengmenu" &&
+            foregroundClass == "com.spocky.projengmenu.ui.home.MainActivity"
+    }
+
+    @Synchronized private fun requestCheck() {
+        if (!isAllowed() || pending?.isDone == false) return
+        val delay = maxOf(0L, nextCheckAt - SystemClock.elapsedRealtime())
+        pending = worker.schedule({
+            if (!isAllowed()) {
+                synchronized(this) { pending = null }
+                Log.i("ShieldSports", "Paused: Projectivy Home is not visible")
+                return@schedule
+            }
+            render()
+            synchronized(this) {
+                pending = null
+                nextCheckAt = SystemClock.elapsedRealtime() + 60_000L
+            }
+            // No repeating task remains after Home is no longer visible.
+            requestCheck()
+        }, delay, TimeUnit.MILLISECONDS)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -33,8 +115,13 @@ class WallpaperProviderService : Service() {
         val initial = saved?.takeIf { it.isFile && it.parentFile == workspace }
             ?: File(workspace, "wallpaper-bootstrap.jpg").also { copyAsset("bootstrap.jpg", it) }
         current = wallpaper(initial)
-        // A bound provider remains active while Projectivy uses it. No always-on computer needed.
-        worker.scheduleWithFixedDelay({ render() }, 0, 60, TimeUnit.SECONDS)
+        revision = assets.open("chaquopy/build.json").bufferedReader().use {
+            JSONObject(it.readText()).getJSONObject("assets").getString("app.imy")
+        }
+        ContextCompat.registerReceiver(this, screenReceiver,
+            IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON) },
+            ContextCompat.RECEIVER_NOT_EXPORTED)
+        requestCheck()
     }
 
     private fun copyAsset(name: String, target: File) {
@@ -51,9 +138,11 @@ class WallpaperProviderService : Service() {
 
     private fun render() {
         try {
+            if (!isAllowed()) return
             if (!Python.isStarted()) Python.start(AndroidPlatform(applicationContext))
             val path = Python.getInstance().getModule("local_renderer")
-                .callAttr("render", workspace.absolutePath).toString()
+                .callAttr("render", workspace.absolutePath, this, revision).toString()
+            if (path.isBlank() || !isAllowed()) return
             val file = File(path)
             val next = wallpaper(file)
             val changed = current?.uri != next.uri
@@ -67,22 +156,36 @@ class WallpaperProviderService : Service() {
                     putExtra(WallpaperProviderContract.EXTRA_UPDATE_REASON, WallpaperProviderContract.UpdateReason.DATA_CHANGED)
                 })
             }
-            Log.i("ShieldSports", "Local render complete: ${file.name}; changed=$changed")
+            Log.i("ShieldSports", "Visible-home check complete: ${file.name}; changed=$changed")
             // Retain recent images so in-flight Projectivy reads keep working.
             workspace.listFiles()?.filter { it.name.startsWith("wallpaper-") && it.extension == "jpg" }
                 ?.sortedByDescending { it.lastModified() }?.drop(4)?.forEach { it.delete() }
         } catch (error: Exception) {
-            Log.e("ShieldSports", "Local render failed; keeping last good wallpaper", error)
+            if (isAllowed()) Log.e("ShieldSports", "Local check failed; keeping last good wallpaper", error)
+            else Log.i("ShieldSports", "Paused: stopped local check after leaving Home")
         }
     }
 
-    override fun onBind(intent: Intent): IBinder = binder
+    override fun onBind(intent: Intent): IBinder {
+        requestCheck()
+        return binder
+    }
+    override fun onUnbind(intent: Intent): Boolean {
+        synchronized(this) { pending?.cancel(true); pending = null }
+        return true
+    }
+    override fun onRebind(intent: Intent) { requestCheck() }
     private val binder = object : IWallpaperProviderService.Stub() {
-        override fun getWallpapers(event: Event?): List<Wallpaper> = current?.let { listOf(it) } ?: emptyList()
+        override fun getWallpapers(event: Event?): List<Wallpaper> {
+            requestCheck()
+            return current?.let { listOf(it) } ?: emptyList()
+        }
         override fun getPreferences(): String = ""
         override fun setPreferences(params: String) = Unit
     }
     override fun onDestroy() {
+        destroyed = true
+        unregisterReceiver(screenReceiver)
         worker.shutdownNow()
         super.onDestroy()
     }

@@ -15,3 +15,9 @@ The provider retains the existing package and UUID so the selected Projectivy so
 ## Attribution
 
 Projectivy provider template: https://github.com/spocky/projectivy-plugin-wallpaper-provider (Apache-2.0). Python runtime: https://chaquo.com/chaquopy/. Fonts and renderer artwork retain their original licenses.
+
+## Foreground-only efficiency
+
+The provider requires Android Usage Access solely to determine whether Projectivy's Home activity is visible. It fails closed if that access is missing. Device sleep cancels pending work. A scheduled visibility check which finds another app stops the update chain; Home callbacks resume it. No sports fetch or image composition is started outside Home. Work already in progress checks visibility before each request and drawing stage and abandons publication when Home is no longer visible. An already issued network request can take up to its timeout to return.
+
+Each visible-home check fetches display data, compares a persisted signature of the actual cards/standings/time labels, and skips image composition when unchanged. NBA clock ticks do not trigger redraws because the clock is not displayed. Source revision changes invalidate the signature. Team-logo thumbnails are cached locally. A valid previous image and signature survive process restarts. The last-known image stays displayed while paused.

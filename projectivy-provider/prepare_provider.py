@@ -69,6 +69,7 @@ for font_name in ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"):
     shutil.copy2(font_root / font_name, asset_dir / font_name)
 
 manifest_text = manifest.read_text(encoding="utf-8")
+manifest_text = manifest_text.replace("<application", '<uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" /><application', 1)
 manifest_text = manifest_text.replace("</application>", '''
         <provider android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.wallpapers"
@@ -89,8 +90,8 @@ text += '''
 android {
     defaultConfig {
         minSdk = 24
-        versionCode = 4
-        versionName = "2.0-local"
+        versionCode = 5
+        versionName = "2.1-efficient"
         ndk { abiFilters += listOf("arm64-v8a") }
     }
 }

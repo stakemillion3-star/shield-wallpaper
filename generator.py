@@ -923,7 +923,7 @@ def draw_centered_panel(im,events,show_standings,competition_label):
 
 
 
-def main():
+def main(before_render=None):
     global DISPLAY_DATE
     errors=[]
     try:
@@ -1109,6 +1109,10 @@ def main():
     if standings_sport=="nba" and not standings_data("nba"):
         show_standings=False
 
+    if before_render is not None and not before_render(
+            events, show_standings, standings_sport, competition_label):
+        return False
+
     im=background().convert("RGBA")
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     ImageDraw.Draw(shade).rectangle((0,0,W,H),fill=(0,0,0,26))
@@ -1121,7 +1125,8 @@ def main():
 
     # Keep the existing p.json feed URL and publish a fresh, cache-busted image after each render.
     version=datetime.now(TZ).strftime("%Y%m%d")
-    digest=hashlib.sha256(open("wallpaper.jpg","rb").read()).hexdigest()[:12]
+    with open("wallpaper.jpg","rb") as image_source:
+        digest=hashlib.sha256(image_source.read()).hexdigest()[:12]
     feed=[{"location":"Shield Sports","title":"Bosnia & Raptors Daily Wallpaper",
            "url_img":f"https://stakemillion3-star.github.io/shield-wallpaper/wallpaper.jpg?v={version}-{digest}"}]
     with open("p.json","w",encoding="utf-8") as output:

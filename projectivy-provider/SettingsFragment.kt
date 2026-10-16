@@ -11,7 +11,7 @@ class SettingsFragment : GuidedStepSupportFragment() {
     override fun onCreateGuidance(savedInstanceState: Bundle?): Guidance {
         return Guidance(
             getString(R.string.plugin_name),
-            "Renders ESPN scores on this Shield every minute while Projectivy is active.",
+            "Checks ESPN only while Projectivy Home is visible; redraws only when displayed content changes.",
             "Wallpaper refresh",
             AppCompatResources.getDrawable(requireActivity(), R.drawable.ic_plugin)
         )
