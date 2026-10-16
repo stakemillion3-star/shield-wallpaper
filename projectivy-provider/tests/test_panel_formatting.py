@@ -37,4 +37,15 @@ class PanelFormattingTests(unittest.TestCase):
         self.assertIn('PRESEASON',texts)
         self.assertIn('NATIONS LEAGUE',texts)
 
+    def test_regular_season_standings_panel_renders(self):
+        rows=[dict(abbr='TOR',name='Toronto Raptors',rank='7',wins='3',losses='2',pct='.600',gb='1.0')]
+        with patch.object(g,'standings_data',return_value=rows),patch.object(g,'team_icon',return_value=None):
+            result=g.draw_standings_panel(Image.new('RGBA',(g.W,g.H)),500,1200,2500,450,'',sport='nba')
+        self.assertEqual(result.size,(g.W,g.H))
+    def test_bosnia_standings_panel_renders(self):
+        rows=[('1','Bosnia and Herzegovina','4','2','1','1','+2','7')]
+        with patch.object(g,'standings_data',return_value=rows),patch.object(g,'team_icon',return_value=None):
+            result=g.draw_standings_panel(Image.new('RGBA',(g.W,g.H)),500,1200,2500,450,'NATIONS LEAGUE',sport='soccer')
+        self.assertEqual(result.size,(g.W,g.H))
+
 if __name__=='__main__': unittest.main()

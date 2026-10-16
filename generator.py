@@ -890,6 +890,49 @@ def draw_compact_event_panel(im,x,y,w,h,event,show_heading=True):
 
 
 
+def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
+    im=panel(im,(x,y,x+w,y+h),194); draw=ImageDraw.Draw(im)
+    if sport=="nba":
+        rows=standings_data("nba")
+        col_x=[x+w-510,x+w-390,x+w-260,x+w-120]
+        for heading,cx in zip(["W","L","PCT","GB"],col_x):
+            centered_text(draw,heading,cx,y+58,font(31,True),(235,238,244,255))
+        slot_h=max(58,(h-100)//max(1,len(rows)))
+        row_h=58
+        row_start=y+86
+        for i,row in enumerate(rows):
+            ry=row_start+i*slot_h+(slot_h-row_h)//2
+            if row["abbr"]=="TOR" or "raptors" in row["name"].lower():
+                draw.rounded_rectangle((x+22,ry-2,x+w-22,ry+row_h-4),radius=12,
+                                       fill=(76,8,18,232),outline=(255,92,104,150),width=2)
+            centered_text(draw,row["rank"]+".",x+64,ry+row_h/2,font(32,True),(255,255,255,255))
+            icon=team_icon(row["name"],"nba",(38,38))
+            if icon: im.alpha_composite(icon,(x+104,ry+int(row_h/2-icon.height/2)))
+            draw.text((x+164,ry+row_h/2),row["name"],anchor="lm",
+                      font=fitted_font(draw,row["name"],w-900,32,25),fill=(255,255,255,255))
+            for cx,value in zip(col_x,[row["wins"],row["losses"],row["pct"],row["gb"]]):
+                centered_text(draw,str(value),cx,ry+row_h/2,font(31,True),(255,255,255,255))
+        return im
+    rows=standings_data("soccer")
+    table_w=min(w-150,2320); tx=x+(w-table_w)//2
+    col_x=[tx+table_w-575,tx+table_w-455,tx+table_w-335,tx+table_w-205,tx+table_w-65]
+    for heading,cx in zip(["W","D","L","GD","PTS"],col_x):
+        centered_text(draw,heading,cx,y+58,font(37,True),(235,238,244,255))
+    for i,(position,name,played,wins,draws,losses,gd,points) in enumerate(rows):
+        ry=y+97+i*77
+        if "Bosnia" in name:
+            draw.rounded_rectangle((tx+8,ry-2,tx+table_w-8,ry+71),radius=14,fill=(35,105,170,165))
+        centered_text(draw,position+".",tx+44,ry+38,font(40,True),(255,255,255,255))
+        icon=team_icon(name,"soccer",(94,60))
+        if icon: im.alpha_composite(icon,(tx+96,ry+38-icon.height//2))
+        draw.text((tx+220,ry+38),display_name(name),anchor="lm",
+                  font=fitted_font(draw,display_name(name),table_w-900,40,34),fill=(255,255,255,255))
+        for cx,value in zip(col_x,[wins,draws,losses,gd,points]):
+            centered_text(draw,str(value),cx,ry+38,font(40,True),(255,255,255,255))
+    return im
+
+
+
 def draw_centered_panel(im,events,show_standings,competition_label):
     if not events:
         return im
