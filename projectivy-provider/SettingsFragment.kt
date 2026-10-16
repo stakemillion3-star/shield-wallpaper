@@ -11,7 +11,7 @@ class SettingsFragment : GuidedStepSupportFragment() {
     override fun onCreateGuidance(savedInstanceState: Bundle?): Guidance {
         return Guidance(
             getString(R.string.plugin_name),
-            "Checks your GitHub wallpaper feed every 5 minutes.",
+            "Renders ESPN scores on this Shield every minute while Projectivy is active.",
             "Wallpaper refresh",
             AppCompatResources.getDrawable(requireActivity(), R.drawable.ic_plugin)
         )
@@ -22,7 +22,7 @@ class SettingsFragment : GuidedStepSupportFragment() {
             GuidedAction.Builder(context)
                 .id(ACTION_REFRESH)
                 .title("Refresh wallpaper now")
-                .description("Fetch the latest score wallpaper from GitHub")
+                .description("Display the latest wallpaper rendered on this Shield")
                 .build()
         )
     }

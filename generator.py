@@ -61,6 +61,7 @@ def team_icon(name,sport,size=(100,70)):
 
 def font(size,bold=False):
     paths=[
+      os.path.join(os.environ.get("SHIELD_FONT_DIR", ""), "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"),
       "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
       "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"]
     for p in paths:

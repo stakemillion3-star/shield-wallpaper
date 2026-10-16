@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - "projectivy-provider/**"
+      - "generator.py"
+      - "assets/**"
       - ".github/workflows/build-projectivy-provider.yml"
   workflow_dispatch:
 permissions:
@@ -16,6 +18,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - name: Get official Projectivy provider template
         run: git clone --depth 1 https://github.com/spocky/projectivy-plugin-wallpaper-provider.git "$RUNNER_TEMP/projectivy-provider"
       - name: Configure Shield Sports provider
