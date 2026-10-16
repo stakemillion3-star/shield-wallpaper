@@ -61,6 +61,7 @@ def team_icon(name,sport,size=(100,70)):
 
 def font(size,bold=False):
     paths=[
+      os.path.join(os.environ.get("SHIELD_FONT_DIR", ""), "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"),
       "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
       "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"]
     for p in paths:
@@ -266,15 +267,19 @@ def fmt_date(dt):
     local=dt.astimezone(TZ)
     today=DISPLAY_DATE or datetime.now(TZ).date()
     delta=(local.date()-today).days
+    # Android's strftime does not consistently support the GNU %-I flag.
+    time_label=f"{local.hour % 12 or 12}:{local.minute:02d} {'AM' if local.hour<12 else 'PM'}"
     if delta==0:
-        return "TODAY • "+local.strftime("%-I:%M %p")
+        return "TODAY • "+time_label
     if delta==1:
-        return "TOMORROW • "+local.strftime("%-I:%M %p")
+        return "TOMORROW • "+time_label
     if delta==-1:
         return "YESTERDAY • FINAL"
     if 2<=delta<=7:
-        return local.strftime("%A • %-I:%M %p").upper()
-    return local.strftime("%a %b %d • %-I:%M %p")
+        return local.strftime("%A").upper()+" • "+time_label
+    return local.strftime("%a %b %d")+" • "+time_label
+
+
 
 def matchup(e,with_score=False):
     if not e:return "—"
@@ -736,61 +741,38 @@ def soccer_live_label(event):
     except ValueError:
         return "LIVE • TODAY"
 
-def nba_live_checkpoint(event):
-    # Show only completed-period scores: end of Q1, halftime, end of Q3,
-    # then the final score. In-quarter scoring is deliberately held back.
-    detail=str(event.get("detail") or "").strip()
-    lower=detail.lower()
-    if "half" in lower:
-        completed_periods,label=2,"HALFTIME"
-    elif "end" in lower or "complete" in lower:
-        if "3rd" in lower or "third" in lower:
-            completed_periods,label=3,"END 3Q"
-        elif "2nd" in lower or "second" in lower:
-            completed_periods,label=2,"HALFTIME"
-        elif "1st" in lower or "first" in lower:
-            completed_periods,label=1,"END 1Q"
-        else:
-            completed_periods,label=0,"LIVE"
+def nba_live_score(event):
+    """Use ESPN's current cumulative score rather than completed-quarter totals."""
+    import re
+    detail=str(event.get("detail") or "").strip().lower()
+    try:
+        period=int(event.get("period") or 0)
+    except (TypeError,ValueError):
+        period=0
+    if not period:
+        match=re.search(r"\b([1-4])(?:st|nd|rd|th)\b",detail)
+        if match:
+            period=int(match.group(1))
+    quarter=(f"{period}Q" if 1<=period<=4 else
+             ("OT" if period==5 else f"{period-4}OT") if period>=5 else "")
+    if "half" in detail:
+        label="HALFTIME"
+    elif "end" in detail and quarter:
+        label=f"END {quarter}"
     else:
-        try:
-            period=int(event.get("period") or 0)
-        except (TypeError,ValueError):
-            period=0
-        if period>=4:
-            completed_periods,label=3,"END 3Q"
-        elif period==3:
-            completed_periods,label=2,"HALFTIME"
-        elif period==2:
-            completed_periods,label=1,"END 1Q"
-        else:
-            completed_periods,label=0,"LIVE"
-
-    if completed_periods==0:
-        return None,label
-    period_scores=event.get("period_scores") or {}
-    totals={}
+        label=quarter
+    scores={}
     for team in event.get("teams") or []:
-        name=team[0]
-        values=period_scores.get(name) or []
-        if len(values)>=completed_periods and all(
-                isinstance(value,(int,float)) for value in values[:completed_periods]):
-            totals[name]=sum(values[:completed_periods])
-    if len(totals)==2:
-        return totals,label
-
-    # At an explicitly reported quarter break, ESPN's cumulative score is
-    # already the exact checkpoint score. Avoid using it once play resumes.
-    explicit_break=("half" in lower or "end of" in lower or "end " in lower)
-    if explicit_break:
         try:
-            totals={team[0]:int(str(team[1]).replace(",",""))
-                    for team in event.get("teams") or []}
-            if len(totals)==2:
-                return totals,label
+            value=int(str(team[1]).replace(",", ""))
         except (TypeError,ValueError):
-            pass
-    return None,label
+            return None,label
+        if value<0:
+            return None,label
+        scores[team[0]]=value
+    return (scores if len(scores)==2 else None),label
+
+
 
 def fitted_font(draw,text,max_width,initial=44,minimum=32):
     size=initial
@@ -838,9 +820,9 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
         centered_text(draw,"FINAL",center_x,y+655,font(64,True),accent)
     elif event.get("state")=="in":
         if event["sport"]=="nba":
-            checkpoint,label=nba_live_checkpoint(event)
-            left_score=checkpoint.get(left[0]) if checkpoint else None
-            right_score=checkpoint.get(right[0]) if checkpoint else None
+            scores,label=nba_live_score(event)
+            left_score=scores.get(left[0]) if scores else None
+            right_score=scores.get(right[0]) if scores else None
             if left_score is not None and right_score is not None:
                 middle=f"{left_score}  –  {right_score}"
             else:
@@ -856,7 +838,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
         centered_text(draw,matchup_mark,mark_x,icon_y,font(105,True),(255,255,255,255))
         centered_text(draw,event_time_label(event),center_x,y+655,font(64,True),accent)
 
-def draw_compact_event_panel(im,x,y,w,h,event):
+def draw_compact_event_panel(im,x,y,w,h,event,show_heading=True):
     im=panel(im,(x,y,x+w,y+h),194)
     draw=ImageDraw.Draw(im)
     sport=event["sport"]
@@ -872,7 +854,7 @@ def draw_compact_event_panel(im,x,y,w,h,event):
     # Keep its league label, logos, names, and status compact.
     heading=("PRESEASON" if event.get("phase")=="PRESEASON" else
              ("NATIONS LEAGUE" if sport=="soccer" else ""))
-    if heading:
+    if heading and show_heading:
         centered_text(draw,heading,x+w/2,y+48,font(34,True),accent)
 
     center_x=x+w/2
@@ -888,11 +870,11 @@ def draw_compact_event_panel(im,x,y,w,h,event):
         status="FINAL"
     elif event.get("state")=="in":
         if sport=="nba":
-            checkpoint,label=nba_live_checkpoint(event)
-            ls=checkpoint.get(left[0]) if checkpoint else None
-            rs=checkpoint.get(right[0]) if checkpoint else None
+            scores,label=nba_live_score(event)
+            ls=scores.get(left[0]) if scores else None
+            rs=scores.get(right[0]) if scores else None
             middle=f"{ls}  –  {rs}" if ls is not None and rs is not None else mark
-            status="LIVE"
+            status=f"{label} • LIVE" if label else "LIVE"
         else:
             middle=f"{left[1] or '0'}  –  {right[1] or '0'}"
             status=soccer_live_label(event)
@@ -905,6 +887,7 @@ def draw_compact_event_panel(im,x,y,w,h,event):
     centered_text(draw,display_name(right[0]).upper(),right_cx,y+275,font(30,True),(248,248,250,255))
     centered_text(draw,status,center_x,y+h-48,font(36,True),accent)
     return im
+
 
 
 def draw_centered_panel(im,events,show_standings,competition_label):
@@ -928,7 +911,8 @@ def draw_centered_panel(im,events,show_standings,competition_label):
     next_y=y+main_h
     if card_count==2:
         next_y+=gap
-        im=draw_compact_event_panel(im,x,next_y,card_w,secondary_h,events[1])
+        im=draw_compact_event_panel(im,x,next_y,card_w,secondary_h,events[1],
+                                    show_heading=events[0]["sport"]!=events[1]["sport"])
         next_y+=secondary_h
 
     if show_standings:
@@ -936,6 +920,7 @@ def draw_centered_panel(im,events,show_standings,competition_label):
         im=draw_standings_panel(im,x,stand_y,card_w,standings_h,competition_label,
                                 sport=events[0]["sport"])
     return im
+
 
 
 def main():

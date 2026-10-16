@@ -1,27 +1,17 @@
-# Shield Sports Live for Projectivy
+# Shield Sports Live — local rendering
 
-This companion provider reads the existing Overflight-compatible feed at:
+This provider runs the repository’s shared `generator.py` on the Shield itself using Chaquopy. It bundles the same background and DejaVu fonts used by GitHub. It reads ESPN directly, renders once per minute after the previous render finishes while the bound provider is active, and notifies Projectivy whenever the image changes. Projectivy polls the provider every minute as a fallback. Images are served through a private FileProvider with read access granted to Projectivy, avoiding remote image cache failures.
 
-`https://stakemillion3-star.github.io/shield-wallpaper/p.json`
-
-It asks Projectivy to re-request the feed every 5 minutes while Projectivy is refreshing wallpapers. Each request uses a cache-busting query on the JSON feed; the image URL already carries the rendered image hash.
+The last good image persists across restarts. The existing published wallpaper is bundled for initial startup. Network failures retain the last successful render. The update target is under five minutes after ESPN’s API changes while the Shield is awake and Projectivy is active; this is not a guarantee during network outages, device sleep, or delayed ESPN data. No PC, NAS, or GitHub job is required for normal updates.
 
 ## Build
 
-The GitHub Actions workflow builds the Android TV APK from the official Projectivy wallpaper-provider template and publishes it at:
+The build workflow uses the official Projectivy template, Python 3.11, Chaquopy 17.1, and Pillow 11.0 (available as an Android wheel). `prepare_provider.py` bundles the shared renderer and assets. Linux builds read fonts from `/usr/share/fonts/truetype/dejavu`; local builds can set `SHIELD_BUILD_FONT_DIR`. APK updates must use the same signing key as the installed app. Keep signing keys out of the repository.
 
-`downloads/ShieldSportsLive.apk`
+Future renderer/rule changes require an updated APK. GitHub continues publishing its wallpaper independently as a fallback. Android logs tagged `ShieldSports` report each successful render and failures.
 
-The APK can be sideloaded onto the Shield. Install the app, then select **Shield Sports Live** under Projectivy Settings → Appearance → Wallpaper. Keep Overflight installed until the new provider has been tested; you can switch back to Overflight at any time.
-
-## Refresh limits
-
-This is a 5-minute polling interval, not a push notification from GitHub. The image refreshes while Projectivy requests wallpaper updates; it cannot display a new wallpaper while another app is covering the launcher or while the Shield is off. When the Shield returns to Projectivy, its next provider request reads the latest feed.
+The provider retains the existing package and UUID so the selected Projectivy source stays the same. It never changes the default launcher or Home-button mapping.
 
 ## Attribution
 
-The Android provider is built from the Projectivy Wallpaper Provider sample template (Apache-2.0): https://github.com/spocky/projectivy-plugin-wallpaper-provider
-
-## Recovery
-
-The provider retains the last successful image URL across service restarts and uses the published sports image when no feed has been cached. Returning home also requests the sports image. Feed errors are recorded in Android logs under `ShieldSports`. The refresh button sends the provider UUID as a string, as required by Projectivy.
+Projectivy provider template: https://github.com/spocky/projectivy-plugin-wallpaper-provider (Apache-2.0). Python runtime: https://chaquo.com/chaquopy/. Fonts and renderer artwork retain their original licenses.

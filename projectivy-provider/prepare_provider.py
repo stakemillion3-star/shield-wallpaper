@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import os
 
 template = Path(sys.argv[1])
 source_dir = Path(__file__).parent
@@ -20,7 +21,7 @@ old_cache = 'android:value="@integer/items_cache_duration_millis"'
 if old_cache not in manifest_text:
     raise SystemExit("Projectivy template cache-duration setting changed; review before building.")
 manifest.write_text(
-    manifest_text.replace(old_cache, 'android:value="300000"'),
+    manifest_text.replace(old_cache, 'android:value="60000"'),
     encoding="utf-8",
 )
 
@@ -50,3 +51,58 @@ activity.write_text(
         "putExtra(WallpaperProviderContract.EXTRA_PROVIDER_ID, getString(R.string.plugin_uuid))"),
     encoding="utf-8",
 )
+
+# Bundle the existing renderer instead of depending on delayed GitHub jobs.
+import shutil
+repo = source_dir.parent
+python_dir = template / "sample/src/main/python"
+python_dir.mkdir(parents=True, exist_ok=True)
+for source in (repo / "generator.py", source_dir / "local_renderer.py"):
+    shutil.copy2(source, python_dir / source.name)
+asset_dir = template / "sample/src/main/assets/shield"
+asset_dir.mkdir(parents=True, exist_ok=True)
+shutil.copy2(repo / "assets/background.jpg", asset_dir / "background.jpg")
+shutil.copy2(repo / "wallpaper.jpg", asset_dir / "bootstrap.jpg")
+shutil.copy2(source_dir / "DejaVu-LICENSE.txt", asset_dir / "DejaVu-LICENSE.txt")
+font_root = Path(os.environ.get("SHIELD_BUILD_FONT_DIR", "/usr/share/fonts/truetype/dejavu"))
+for font_name in ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"):
+    shutil.copy2(font_root / font_name, asset_dir / font_name)
+
+manifest_text = manifest.read_text(encoding="utf-8")
+manifest_text = manifest_text.replace("</application>", '''
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.wallpapers"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/wallpaper_paths" />
+        </provider>
+    </application>''')
+manifest.write_text(manifest_text, encoding="utf-8")
+xml_dir = template / "sample/src/main/res/xml"
+xml_dir.mkdir(parents=True, exist_ok=True)
+(xml_dir / "wallpaper_paths.xml").write_text('<paths><files-path name="wallpapers" path="wallpaper/" /></paths>', encoding="utf-8")
+
+build = template / "sample/build.gradle.kts"
+text = build.read_text(encoding="utf-8")
+text = text.replace("plugins {", 'plugins {\n    id("com.chaquo.python") version "17.1.0"', 1)
+text += '''
+android {
+    defaultConfig {
+        minSdk = 24
+        versionCode = 4
+        versionName = "2.0-local"
+        ndk { abiFilters += listOf("arm64-v8a") }
+    }
+}
+chaquopy {
+    defaultConfig {
+        version = "3.11"
+        pip {
+            install("Pillow==11.0.0")
+            install("requests==2.32.5")
+            install("tzdata")
+        }
+    }
+}
+'''
+build.write_text(text, encoding="utf-8")
