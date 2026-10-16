@@ -63,6 +63,7 @@ asset_dir = template / "sample/src/main/assets/shield"
 asset_dir.mkdir(parents=True, exist_ok=True)
 shutil.copy2(repo / "assets/background.jpg", asset_dir / "background.jpg")
 shutil.copy2(repo / "wallpaper.jpg", asset_dir / "bootstrap.jpg")
+shutil.copy2(source_dir / "DejaVu-LICENSE.txt", asset_dir / "DejaVu-LICENSE.txt")
 font_root = Path(os.environ.get("SHIELD_BUILD_FONT_DIR", "/usr/share/fonts/truetype/dejavu"))
 for font_name in ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"):
     shutil.copy2(font_root / font_name, asset_dir / font_name)
