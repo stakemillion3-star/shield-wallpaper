@@ -36,6 +36,7 @@ class WallpaperProviderService : Service() {
     private var pending: ScheduledFuture<*>? = null
     private var nextCheckAt = 0L
     private var lastQuery = 0L
+    private var visibilityRetry: ScheduledFuture<*>? = null
     private var foregroundPackage: String? = null
     private var foregroundClass: String? = null
     private var revision = ""
@@ -46,10 +47,13 @@ class WallpaperProviderService : Service() {
                 synchronized(this@WallpaperProviderService) {
                     pending?.cancel(true)
                     pending = null
+                    visibilityRetry?.cancel(false)
+                    visibilityRetry = null
                 }
                 Log.i("ShieldSports", "Paused: screen off")
             } else if (intent.action == Intent.ACTION_SCREEN_ON) {
-                requestCheck()
+                synchronized(this@WallpaperProviderService) { lastQuery = 0L }
+                requestCheck(3)
             }
         }
     }
@@ -62,7 +66,10 @@ class WallpaperProviderService : Service() {
         if (ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
                 Process.myUid(), packageName) != AppOpsManager.MODE_ALLOWED) return false
         val now = System.currentTimeMillis()
-        val start = if (lastQuery == 0L) now - TimeUnit.DAYS.toMillis(1) else lastQuery - 1
+        // Usage events can become queryable AFTER a previous query's end time.
+        // Replay an overlapping window so a delayed Home resume cannot be lost.
+        val start = if (lastQuery == 0L) now - TimeUnit.DAYS.toMillis(1)
+            else now - TimeUnit.MINUTES.toMillis(2)
         val events = (getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager).queryEvents(start, now)
         val event = UsageEvents.Event()
         while (events.hasNextEvent()) {
@@ -85,13 +92,28 @@ class WallpaperProviderService : Service() {
             foregroundClass == "com.spocky.projengmenu.ui.home.MainActivity"
     }
 
-    @Synchronized private fun requestCheck() {
-        if (!isAllowed() || pending?.isDone == false) return
+    @Synchronized private fun requestCheck(settleRetries: Int = 0) {
+        if (!isAllowed()) {
+            // Only briefly retry after a launcher callback; never poll indefinitely
+            // while another app is foreground. Android may still be recording resume.
+            val awake = (getSystemService(POWER_SERVICE) as PowerManager).isInteractive
+            if (!destroyed && awake && settleRetries > 0 && visibilityRetry?.isDone != false) {
+                visibilityRetry = worker.schedule({
+                    synchronized(this) { visibilityRetry = null }
+                    requestCheck(settleRetries - 1)
+                }, 750, TimeUnit.MILLISECONDS)
+            }
+            return
+        }
+        visibilityRetry?.cancel(false)
+        visibilityRetry = null
+        if (pending?.isDone == false) return
         val delay = maxOf(0L, nextCheckAt - SystemClock.elapsedRealtime())
         pending = worker.schedule({
             if (!isAllowed()) {
                 synchronized(this) { pending = null }
                 Log.i("ShieldSports", "Paused: Projectivy Home is not visible")
+                requestCheck(3)
                 return@schedule
             }
             render()
@@ -121,7 +143,7 @@ class WallpaperProviderService : Service() {
         ContextCompat.registerReceiver(this, screenReceiver,
             IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON) },
             ContextCompat.RECEIVER_NOT_EXPORTED)
-        requestCheck()
+        requestCheck(3)
     }
 
     private fun copyAsset(name: String, target: File) {
@@ -167,17 +189,20 @@ class WallpaperProviderService : Service() {
     }
 
     override fun onBind(intent: Intent): IBinder {
-        requestCheck()
+        requestCheck(3)
         return binder
     }
     override fun onUnbind(intent: Intent): Boolean {
-        synchronized(this) { pending?.cancel(true); pending = null }
+        synchronized(this) {
+            pending?.cancel(true); pending = null
+            visibilityRetry?.cancel(false); visibilityRetry = null
+        }
         return true
     }
-    override fun onRebind(intent: Intent) { requestCheck() }
+    override fun onRebind(intent: Intent) { requestCheck(3) }
     private val binder = object : IWallpaperProviderService.Stub() {
         override fun getWallpapers(event: Event?): List<Wallpaper> {
-            requestCheck()
+            requestCheck(3)
             return current?.let { listOf(it) } ?: emptyList()
         }
         override fun getPreferences(): String = ""

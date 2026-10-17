@@ -90,8 +90,8 @@ text += '''
 android {
     defaultConfig {
         minSdk = 24
-        versionCode = 5
-        versionName = "2.1-efficient"
+        versionCode = 6
+        versionName = "2.2-resume"
         ndk { abiFilters += listOf("arm64-v8a") }
     }
 }
