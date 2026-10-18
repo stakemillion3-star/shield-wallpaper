@@ -15,6 +15,7 @@ def display_state(generator, events, show_standings, sport, label, revision):
     for event in events:
         item={key:event.get(key) for key in ('sport','phase','completed','state')}
         item['teams']=[(team[0],team[2]) for team in event['teams']]
+        item['heading']=generator.nba_heading(event) if event['sport']=='nba' else 'NATIONS LEAGUE'
         item['time_label']=generator.event_time_label(event)
         if event['completed'] or event.get('state')=='in':
             item['scores']=[team[1] for team in event['teams']]

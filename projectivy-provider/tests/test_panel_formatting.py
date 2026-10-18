@@ -30,11 +30,11 @@ class PanelFormattingTests(unittest.TestCase):
         return texts
     def test_same_league_heading_only_once(self):
         texts=self.texts('nba')
-        self.assertEqual(texts.count('PRESEASON'),1)
+        self.assertNotIn('PRESEASON',texts)
         self.assertIn('TOMORROW • 7:00 PM',texts)
     def test_mixed_leagues_keep_lower_heading(self):
         texts=self.texts('soccer')
-        self.assertIn('PRESEASON',texts)
+        self.assertNotIn('PRESEASON',texts)
         self.assertIn('NATIONS LEAGUE',texts)
 
     def test_regular_season_standings_panel_renders(self):

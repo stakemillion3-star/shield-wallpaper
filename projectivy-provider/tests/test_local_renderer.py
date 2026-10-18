@@ -16,6 +16,7 @@ class LocalRendererTests(unittest.TestCase):
         self.original=Path.cwd();self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
         self.draws=0;self.score='35';self.period=2;self.clock='6:43';self.time='LIVE • TODAY';self.broken=False
         self.g=types.ModuleType('generator')
+        self.g.nba_heading=lambda event:''
         self.g.get=lambda *a,**k:{}
         self.g.remote_image=lambda *a:None
         self.g.standings_data=lambda sport:[]

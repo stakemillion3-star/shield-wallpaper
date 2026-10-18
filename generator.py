@@ -91,7 +91,10 @@ def parse_event(e):
     dt=datetime.fromisoformat(e["date"].replace("Z","+00:00")).astimezone(TZ)
     status_data=e.get("status") or {}
     status=status_data.get("type") or {}
-    return {"date":dt,"state":status.get("state"),"completed":status.get("completed",False),
+    season_type=e.get("seasonType") or {}
+    try: season_type=int(season_type.get("type",season_type.get("id",0)))
+    except (TypeError,ValueError,AttributeError): season_type=0
+    return {"id":e.get("id"),"season_type":season_type,"date":dt,"state":status.get("state"),"completed":status.get("completed",False),
             "detail":status.get("shortDetail") or status.get("detail") or "",
             "clock":status_data.get("displayClock") or status_data.get("clockDisplayValue") or "",
             "period":status_data.get("period"),"teams":names,"period_scores":period_scores,
@@ -108,13 +111,22 @@ def fetch_schedule(url):
 
 def nba_phase(last,nxt):
     events=([last] if last else [])+(nxt or [])
-    details=" ".join((e.get("detail") or "")+" "+(e.get("name") or "") for e in events).lower()
-    if "preseason" in details: return "PRESEASON"
-    if "playoff" in details or "finals" in details: return "PLAYOFFS"
-    # NBA's 2026-27 regular season starts Oct 20 league-wide; Toronto opens Oct 21.
     now=datetime.now(TZ)
-    if now < datetime(2026,10,20,tzinfo=TZ): return "PRESEASON"
-    return "REGULAR SEASON"
+    active=sorted([e for e in events if not e.get("completed") and
+                   (e.get("state")=="in" or e["date"]>=now)],key=lambda e:e["date"])
+    reference=active[0] if active else last
+    if reference:
+        phase={1:"PRESEASON",2:"REGULAR SEASON",3:"PLAYOFFS"}.get(reference.get("season_type"))
+        if phase:return phase
+        detail=(str(reference.get("detail",""))+" "+str(reference.get("name",""))).lower()
+        if "preseason" in detail:return "PRESEASON"
+        if "playoff" in detail or "finals" in detail:return "PLAYOFFS"
+    return "PRESEASON" if now<datetime(2026,10,20,tzinfo=TZ) else "REGULAR SEASON"
+
+
+def nba_heading(event):
+    return "Season Opener" if event.get("is_season_opener") else ""
+
 
 def raptors():
     # Keep ESPN's season schedule for upcoming fixtures, and merge the daily
@@ -134,6 +146,10 @@ def raptors():
     if events is None:
         raise RuntimeError("Raptors schedule unavailable")
 
+    regular_games=[event for event in events if event.get("season_type")==2]
+    if regular_games:
+        opener=min(regular_games,key=lambda event:event["date"])
+        opener["is_season_opener"]=True
     now=datetime.now(TZ)
     scoreboard_events=[]
     # Select the likely season type first, then fall back across ESPN's NBA
@@ -169,7 +185,10 @@ def raptors():
         return (event["date"].isoformat(),tuple(sorted(team[0] for team in event["teams"][:2])))
     by_key={event_key(event):event for event in events}
     for event in scoreboard_events:
-        by_key[event_key(event)]=event
+        key=event_key(event)
+        if by_key.get(key,{}).get("is_season_opener"):
+            event["is_season_opener"]=True
+        by_key[key]=event
     events=sorted(by_key.values(),key=lambda event:event["date"])
 
     past=[event for event in events if event["completed"] or event["date"]<now]
@@ -278,7 +297,6 @@ def fmt_date(dt):
     if 2<=delta<=7:
         return local.strftime("%A").upper()+" • "+time_label
     return local.strftime("%a %b %d")+" • "+time_label
-
 
 
 def matchup(e,with_score=False):
@@ -639,12 +657,23 @@ def draw_upcoming(im,d,x,y,w,e,sport,accent):
     centered_text(d,fmt_date(e["date"]),cx,y+325,font(52,True),accent)
 
 
+def final_is_expired(event,now=None):
+    if not event.get("completed"):
+        return False
+    now=(now or datetime.now(TZ)).astimezone(TZ)
+    next_day=event["date"].astimezone(TZ).date()+__import__("datetime").timedelta(days=1)
+    cutoff=datetime(next_day.year,next_day.month,next_day.day,12,tzinfo=TZ)
+    return now>=cutoff
+
+
 def date_window_events(last,upcoming,sport):
     today=DISPLAY_DATE or datetime.now(TZ).date()
     candidates=([last] if last else [])+(upcoming or [])
     selected=[]
     seen=set()
     for event in candidates:
+        if final_is_expired(event):
+            continue
         if len(event.get("teams",[]))<2:
             continue
         local_date=event["date"].astimezone(TZ).date()
@@ -773,7 +802,6 @@ def nba_live_score(event):
     return (scores if len(scores)==2 else None),label
 
 
-
 def fitted_font(draw,text,max_width,initial=44,minimum=32):
     size=initial
     while size>minimum and draw.textbbox((0,0),text,font=font(size,True))[2]>max_width:
@@ -784,8 +812,7 @@ def draw_event_row(im,draw,event,x,y,w,row_h):
     soccer=event["sport"]=="soccer"
     accent=(80,170,255,255) if soccer else (255,80,90,255)
     phase=event.get("phase","NBA")
-    heading=("NATIONS LEAGUE" if soccer else
-             ("PRESEASON" if phase=="PRESEASON" else ""))
+    heading="NATIONS LEAGUE" if soccer else nba_heading(event)
     if heading:
         centered_text(draw,heading,x+w/2,y+58,font(54,True),accent)
 
@@ -852,9 +879,8 @@ def draw_compact_event_panel(im,x,y,w,h,event,show_heading=True):
 
     # Every secondary card uses the standings panel's 450px footprint.
     # Keep its league label, logos, names, and status compact.
-    heading=("PRESEASON" if event.get("phase")=="PRESEASON" else
-             ("NATIONS LEAGUE" if sport=="soccer" else ""))
-    if heading and show_heading:
+    heading=nba_heading(event) if sport=="nba" else "NATIONS LEAGUE"
+    if heading and (show_heading or event.get("is_season_opener")):
         centered_text(draw,heading,x+w/2,y+48,font(34,True),accent)
 
     center_x=x+w/2
@@ -887,7 +913,6 @@ def draw_compact_event_panel(im,x,y,w,h,event,show_heading=True):
     centered_text(draw,display_name(right[0]).upper(),right_cx,y+275,font(30,True),(248,248,250,255))
     centered_text(draw,status,center_x,y+h-48,font(36,True),accent)
     return im
-
 
 
 def draw_standings_panel(im,x,y,w,h,competition_label,sport="soccer"):
@@ -963,7 +988,6 @@ def draw_centered_panel(im,events,show_standings,competition_label):
         im=draw_standings_panel(im,x,stand_y,card_w,standings_h,competition_label,
                                 sport=events[0]["sport"])
     return im
-
 
 
 def main(before_render=None):
@@ -1131,6 +1155,8 @@ def main(before_render=None):
                     key=lambda event:(event["date"],0 if event["sport"]=="soccer" else 1))
                 events=week_games[:1]
         # Keep the selected event order: upcoming first, recent final second.
+
+    events=[event for event in events if not final_is_expired(event)]
 
     standings_sport=None
     soccer_match_pair=(len(events)>1 and all(event["sport"]=="soccer" for event in events))
