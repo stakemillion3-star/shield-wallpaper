@@ -380,7 +380,7 @@ def group_standings_from_results():
     return rows
 
 def nba_regular_standings_data(season):
-    data=get(f"https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season={season}")
+    data=get(f"https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season={season}&seasontype=2")
     east={"ATL","BOS","BKN","CHA","CHI","CLE","DET","IND","MIA","MIL","NY","NYK","ORL","PHI","TOR","WSH"}
     rows=[]
     def walk(node,conf=None):
@@ -389,7 +389,10 @@ def nba_regular_standings_data(season):
         elif "western conference" in label or label.strip().endswith(" west") or label=="west": conf="west"
         elif any(x in label for x in ("atlantic division","central division","southeast division")): conf="east"
         elif any(x in label for x in ("northwest division","pacific division","southwest division")): conf="west"
-        for entry in (node.get("standings") or {}).get("entries",[]):
+        table=node.get("standings") or {}
+        if table and (str(table.get("seasonType"))!="2" or str(table.get("season"))!=str(season)):
+            raise ValueError("ESPN returned standings for the wrong season or season type")
+        for entry in table.get("entries",[]):
             team=entry.get("team") or {}
             name=team.get("displayName") or team.get("name") or ""
             abbr=str(team.get("abbreviation","")).upper()
@@ -527,7 +530,7 @@ def standings_data(sport):
     if sport=="nba":
         try: return nba_standings_data()
         except Exception as exc:
-            print(f"ESPN NBA preseason standings unavailable: {exc}")
+            print(f"ESPN NBA standings unavailable: {exc}")
             return []
     if sport!="soccer":
         return []
