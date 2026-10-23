@@ -28,13 +28,36 @@ def display_state(generator, events, show_standings, sport, label, revision):
                 standings_label=label if show_standings else None)
 
 
+def diagnostic(workspace, event, **details):
+    """Keep bounded local history even after Android's shared log buffer rolls over."""
+    from datetime import datetime, timezone
+    try:
+        path=Path(workspace)/'refresh-history.jsonl'
+        line=json.dumps(dict(at=datetime.now(timezone.utc).isoformat(),event=event,**details),default=str)+'\n'
+        if path.exists() and path.stat().st_size>65536:
+            tail=path.read_bytes()[-32768:]
+            path.write_bytes(tail.split(b'\n',1)[-1])
+        with path.open('a') as output: output.write(line)
+    except OSError:
+        pass
+
+
 def render(workspace, gate=None, revision='legacy'):
+    try:
+        return _render(workspace,gate,revision)
+    except Exception as error:
+        diagnostic(workspace,'failed',error=repr(error))
+        raise
+
+
+def _render(workspace, gate=None, revision='legacy'):
     def allowed():
         if gate is not None and not gate.isAllowed():
             raise Paused('Projectivy is not visible or the device is asleep')
     allowed()
     root=Path(workspace)
     root.mkdir(parents=True,exist_ok=True)
+    diagnostic(root,'started',revision=revision)
     os.chdir(root)
     os.environ['SHIELD_FONT_DIR']=str(root/'fonts')
     import generator
@@ -43,7 +66,11 @@ def render(workspace, gate=None, revision='legacy'):
     original_get=generator.get
     def checked_get(url,timeout=8):
         allowed()
-        result=original_get(url,timeout=min(timeout,8))
+        try:
+            result=original_get(url,timeout=min(timeout,8))
+        except Exception as error:
+            diagnostic(root,'feed_failed',url=url,error=repr(error))
+            raise
         allowed()
         return result
     generator.get=checked_get
@@ -100,6 +127,7 @@ def render(workspace, gate=None, revision='legacy'):
         state=display_state(generator,events,show_standings,sport,label,revision)
         digest=hashlib.sha256(json.dumps(state,sort_keys=True,default=str).encode()).hexdigest()
         pending['signature']=digest
+        diagnostic(root,'display_checked',labels=[card['time_label'] for card in state['cards']],changed=saved.get('signature')!=digest)
         if saved.get('signature')==digest and previous.is_file():
             print('Display unchanged; skipped 4K rendering.')
             return False
@@ -108,9 +136,11 @@ def render(workspace, gate=None, revision='legacy'):
         generator.main(before_render=before_render)
         allowed()
     except Paused:
+        diagnostic(root,'paused')
         print('Paused: Projectivy not visible; no image published.')
         return ''
     if pending.get('signature')==saved.get('signature') and previous.is_file():
+        diagnostic(root,'complete',image=previous.name,changed=False)
         return str(previous)
     image=root/'wallpaper.jpg'
     from PIL import Image
@@ -126,4 +156,5 @@ def render(workspace, gate=None, revision='legacy'):
     temp=saved_path.with_suffix('.tmp')
     temp.write_text(json.dumps(dict(signature=pending['signature'],image=target.name)))
     temp.replace(saved_path)
+    diagnostic(root,'complete',image=target.name,changed=True)
     return str(target)

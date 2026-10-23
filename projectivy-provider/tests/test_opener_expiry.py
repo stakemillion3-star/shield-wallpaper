@@ -17,7 +17,10 @@ class OpenerExpiryTests(unittest.TestCase):
     def test_only_first_regular_season_game_is_opener(self):
         def raw(day,kind):
             return dict(id=str(day),date=f'2026-10-{day:02d}T23:30Z',seasonType={'type':kind},status={'type':{'state':'pre','completed':False}},competitions=[{'competitors':[{'team':{'displayName':'Toronto Raptors'},'homeAway':'home'},{'team':{'displayName':'Chicago Bulls'},'homeAway':'away'}]}])
-        with patch.object(g,'get',side_effect=lambda url: {'events':[raw(21,2),raw(23,2)]} if '/schedule?' in url else {'events':[]}):
+        class Fixed(datetime):
+            @classmethod
+            def now(cls,tz=None):return datetime(2026,10,18,tzinfo=g.TZ)
+        with patch.object(g,'datetime',Fixed),patch.object(g,'get',side_effect=lambda url: {'events':[raw(21,2),raw(23,2)]} if '/schedule?' in url else {'events':[]}):
             last,upcoming,phase=g.raptors()
         self.assertEqual(phase,'REGULAR SEASON')
         self.assertEqual(g.nba_heading(upcoming[0]),'Season Opener')

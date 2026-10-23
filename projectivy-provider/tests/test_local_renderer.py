@@ -53,6 +53,22 @@ class LocalRendererTests(unittest.TestCase):
         self.broken=True;self.score='36'
         with self.assertRaises(Exception):self.run_render()
         self.assertEqual(first.read_bytes(),data);self.assertEqual((self.root/'display_state.json').read_bytes(),saved)
+    def test_saved_history_records_day_label_change(self):
+        self.time='TOMORROW • 7:00 PM';self.run_render()
+        self.time='TODAY • 7:00 PM';self.run_render()
+        history=(self.root/'refresh-history.jsonl').read_text()
+        self.assertIn('TOMORROW',history);self.assertIn('TODAY',history)
+        self.assertEqual(self.draws,2)
+    def test_failure_is_saved_without_losing_last_good_image(self):
+        first=Path(self.run_render());self.broken=True;self.score='36'
+        with self.assertRaises(Exception):self.run_render()
+        self.assertTrue(first.exists())
+        self.assertIn('"event": "failed"',(self.root/'refresh-history.jsonl').read_text())
+    def test_history_is_bounded(self):
+        log=self.root/'refresh-history.jsonl';log.write_text(('x'*1000+'\n')*100)
+        m.diagnostic(self.root,'test')
+        m.diagnostic(self.root,'test')
+        self.assertLess(log.stat().st_size,102000)
     def test_background_gate_prevents_work(self):
         gate=types.SimpleNamespace(isAllowed=lambda:False)
         with self.assertRaises(m.Paused):self.run_render(gate)
