@@ -23,20 +23,30 @@ def remote_image(url,size):
     except Exception:
         return None
 
-TEAM_ABBR={"Toronto Raptors":"tor","Miami Heat":"mia","LA Clippers":"lac","New York Knicks":"ny","Detroit Pistons":"det",
-"Chicago Bulls":"chi","Washington Wizards":"wsh","Minnesota Timberwolves":"min","Orlando Magic":"orl",
-"Los Angeles Lakers":"lal","Denver Nuggets":"den","Milwaukee Bucks":"mil","Memphis Grizzlies":"mem",
-"Boston Celtics":"bos","Philadelphia 76ers":"phi"}
+TEAM_ABBR={
+"Atlanta Hawks":"atl","Boston Celtics":"bos","Brooklyn Nets":"bkn","Charlotte Hornets":"cha",
+"Chicago Bulls":"chi","Cleveland Cavaliers":"cle","Dallas Mavericks":"dal","Denver Nuggets":"den",
+"Detroit Pistons":"det","Golden State Warriors":"gs","Houston Rockets":"hou","Indiana Pacers":"ind",
+"LA Clippers":"lac","Los Angeles Clippers":"lac","Los Angeles Lakers":"lal","Memphis Grizzlies":"mem",
+"Miami Heat":"mia","Milwaukee Bucks":"mil","Minnesota Timberwolves":"min","New Orleans Pelicans":"no",
+"New York Knicks":"ny","Oklahoma City Thunder":"okc","Orlando Magic":"orl","Philadelphia 76ers":"phi",
+"Phoenix Suns":"pho","Portland Trail Blazers":"por","Sacramento Kings":"sac","San Antonio Spurs":"sa",
+"Toronto Raptors":"tor","Utah Jazz":"uta","Washington Wizards":"wsh"
+}
+NBA_TEAM_ABBR={}
 COUNTRY_CODE={"Bosnia and Herzegovina":"ba","Sweden":"se","Poland":"pl","Romania":"ro"}
 
 def team_icon(name,sport,size=(100,70)):
     if sport=="nba":
         url=NBA_LOGOS.get(name)
-        if url:
-            icon=remote_image(url,size)
-        else:
-            ab=TEAM_ABBR.get(name)
-            icon=remote_image(f"https://a.espncdn.com/i/teamlogos/nba/500/{ab}.png",size) if ab else None
+        ab=NBA_TEAM_ABBR.get(name) or TEAM_ABBR.get(name)
+        icon=remote_image(url,size) if url else None
+        # If ESPN's event logo is missing or temporarily unreachable, fall back
+        # to its stable team-abbreviation logo path.
+        if not icon and ab:
+            icon=remote_image(f"https://a.espncdn.com/i/teamlogos/nba/500/{ab}.png",size)
+        if not icon:
+            print(f"NBA logo unavailable for {name} (abbr={ab or 'unknown'}).")
         if icon and name=="Toronto Raptors":
             pixels=icon.load()
             for py in range(icon.height):
@@ -76,6 +86,15 @@ def parse_event(e):
     for c in ordered:
         t=c.get("team") or {}
         name=t.get("displayName") or t.get("shortDisplayName") or "?"
+        # Preserve ESPN's own team logo and abbreviation from the event feed.
+        abbr=str(t.get("abbreviation") or "").strip().lower()
+        if abbr:
+            NBA_TEAM_ABBR[name]=abbr
+        logos=t.get("logos") or []
+        logo=t.get("logo") or next(
+            (item.get("href") for item in logos if item.get("href")),None)
+        if logo:
+            NBA_LOGOS[name]=logo
         names.append((name,
                       c.get("score",{}).get("displayValue") if isinstance(c.get("score"),dict) else c.get("score"),
                       c.get("homeAway")))
