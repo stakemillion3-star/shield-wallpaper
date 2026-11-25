@@ -23,20 +23,29 @@ def remote_image(url,size):
     except Exception:
         return None
 
-TEAM_ABBR={"Toronto Raptors":"tor","Miami Heat":"mia","LA Clippers":"lac","New York Knicks":"ny","Detroit Pistons":"det",
-"Chicago Bulls":"chi","Washington Wizards":"wsh","Minnesota Timberwolves":"min","Orlando Magic":"orl",
-"Los Angeles Lakers":"lal","Denver Nuggets":"den","Milwaukee Bucks":"mil","Memphis Grizzlies":"mem",
-"Boston Celtics":"bos","Philadelphia 76ers":"phi"}
+TEAM_ABBR={
+"Atlanta Hawks":"atl","Boston Celtics":"bos","Brooklyn Nets":"bkn","Charlotte Hornets":"cha",
+"Chicago Bulls":"chi","Cleveland Cavaliers":"cle","Dallas Mavericks":"dal","Denver Nuggets":"den",
+"Detroit Pistons":"det","Golden State Warriors":"gs","Houston Rockets":"hou","Indiana Pacers":"ind",
+"LA Clippers":"lac","Los Angeles Clippers":"lac","Los Angeles Lakers":"lal","Memphis Grizzlies":"mem",
+"Miami Heat":"mia","Milwaukee Bucks":"mil","Minnesota Timberwolves":"min","New Orleans Pelicans":"no",
+"New York Knicks":"ny","Oklahoma City Thunder":"okc","Orlando Magic":"orl","Philadelphia 76ers":"phi",
+"Phoenix Suns":"phx","Portland Trail Blazers":"por","Sacramento Kings":"sac","San Antonio Spurs":"sa",
+"Toronto Raptors":"tor","Utah Jazz":"utah","Washington Wizards":"wsh"}
 COUNTRY_CODE={"Bosnia and Herzegovina":"ba","Sweden":"se","Poland":"pl","Romania":"ro"}
 
 def team_icon(name,sport,size=(100,70)):
     if sport=="nba":
-        url=NBA_LOGOS.get(name)
-        if url:
+        urls=[]
+        if NBA_LOGOS.get(name): urls.append(NBA_LOGOS[name])
+        ab=TEAM_ABBR.get(name)
+        if ab: urls.append(f"https://a.espncdn.com/i/teamlogos/nba/500/{ab}.png")
+        icon=None
+        for url in dict.fromkeys(urls):
             icon=remote_image(url,size)
-        else:
-            ab=TEAM_ABBR.get(name)
-            icon=remote_image(f"https://a.espncdn.com/i/teamlogos/nba/500/{ab}.png",size) if ab else None
+            if icon is not None: break
+        if icon is None:
+            raise RuntimeError(f"NBA logo unavailable for {name}; retrying without replacing the last good wallpaper")
         if icon and name=="Toronto Raptors":
             pixels=icon.load()
             for py in range(icon.height):
@@ -77,6 +86,9 @@ def parse_event(e):
     for c in ordered:
         t=c.get("team") or {}
         name=t.get("displayName") or t.get("shortDisplayName") or "?"
+        logos=t.get("logos") or []
+        logo=t.get("logo") or next((item.get("href") for item in logos if item.get("href")),None)
+        if logo and name!="?": NBA_LOGOS[name]=logo
         names.append((name,
                       c.get("score",{}).get("displayValue") if isinstance(c.get("score"),dict) else c.get("score"),
                       c.get("homeAway")))
